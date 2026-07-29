@@ -2,15 +2,42 @@
 # Forked/extended: tracks files as well as directories, renamed z -> lazy.
 # Stripped down for minimal "drop-in" smart cd/editor usage.
 
+# Copyright (c) 2009 rupa deadwyler. Licensed under the WTFPL license, Version 2
+# Forked/extended: tracks files as well as directories, renamed z -> lazy.
+# Stripped down for minimal "drop-in" smart cd/editor usage.
+
 [ -d "${_LAZY_DIR_DATA:-$HOME/.lazydir}" ] && {
     echo "ERROR: lazy's directory datafile (${_LAZY_DIR_DATA:-$HOME/.lazydir}) is a directory."
+    return 1 2>/dev/null || exit 1
 }
 [ -d "${_LAZY_FILE_DATA:-$HOME/.lazyfile}" ] && {
     echo "ERROR: lazy's file datafile (${_LAZY_FILE_DATA:-$HOME/.lazyfile}) is a directory."
+    return 1 2>/dev/null || exit 1
 }
 
-_LAZY_EDITOR_NAME="${_LAZY_EDITOR:-${EDITOR:-vi}}"
+# Fallback: if the user forgot to set their editor anywhere, provide a smart default (nano)
+if [ -z "${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-}}}" ]; then
+    export _LAZY_EDITOR="nano"
+fi
+
+_LAZY_EDITOR_NAME="${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-vi}}}"
 _LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME%% *}"
+
+# Helper function to safely evaluate paths and trigger sudo -e when leaving $HOME
+_lazy_smart_open() {
+    local real_home abs_target
+    real_home="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
+    abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
+
+    case "$abs_target" in
+        "$real_home"|"$real_home"/*) 
+            command ${_LAZY_EDITOR:-${EDITOR:-vi}} "$@" 
+            ;;
+        *) 
+            command sudo -e "$@" 
+            ;;
+    esac
+}
 
 _lazy() {
     # 1. Help menu
@@ -23,7 +50,7 @@ $cmd - frecency-based smart cd and editor launcher
 USAGE
   $cmd help            show this help
   cd foo               falls back to smart directory jump
-  $_LAZY_EDITOR_NAME foo               falls back to smart file open
+  $_LAZY_EDITOR_NAME foo               falls back to smart file open (auto-escalates if outside \$HOME)
 
 TUNABLES (export these in .bashrc/.zshrc before sourcing $cmd)
   _LAZY_CMD               command name to alias '_lazy' to (default: lazy)
@@ -39,15 +66,16 @@ EOF
     local dirfile="${_LAZY_DIR_DATA:-$HOME/.lazydir}"
     local filefile="${_LAZY_FILE_DATA:-$HOME/.lazyfile}"
 
-    [ -h "$dirfile" ] && dirfile=$(readlink "$dirfile")
-    [ -h "$filefile" ] && filefile=$(readlink "$filefile")
+    [ -h "$dirfile" ] && dirfile=$(realpath "$dirfile")
+    [ -h "$filefile" ] && filefile=$(realpath "$filefile")
 
     local mode=""
 
     _lazy_read () {
         local f="$1" type="$2" line p
         [ -f "$f" ] || return 0
-        while read line; do
+        # Fix #2: Added -r to prevent backslash corruption
+        while read -r line; do
             p="${line%%\|*}"
             if [ "$type" = "d" ]; then
                 [ -d "$p" ] && echo "$line"
@@ -65,15 +93,18 @@ EOF
         esac
     }
 
-    # 2. Add entry
+    # 2. Add entry (Actively self-cleans dead paths via _lazy_read filter)
     if [ "$1" = "--add" ]; then
         shift
-        [ "$*" = "$HOME" -o "$*" = '/' ] && return
+        local abs_path
+        abs_path="$(realpath -m "$*" 2>/dev/null || echo "$*")"
+        
+        [ "$abs_path" = "$HOME" -o "$abs_path" = '/' ] && return
 
         local target type
-        if [ -d "$*" ]; then
+        if [ -d "$abs_path" ]; then
             target="$dirfile"; type=d
-        elif [ -f "$*" ]; then
+        elif [ -f "$abs_path" ]; then
             target="$filefile"; type=f
         else
             return
@@ -81,7 +112,7 @@ EOF
 
         local tempfile="$target.$RANDOM"
         local score=${_LAZY_MAX_SCORE:-9000}
-        _lazy_read "$target" "$type" | \awk -v path="$*" -v now="$(\date +%s)" -v score=$score -F"|" '
+        _lazy_read "$target" "$type" | \awk -v path="$abs_path" -v now="$(\date +%s)" -v score=$score -F"|" '
             BEGIN {
                 rank[path] = 1
                 time[path] = now
@@ -125,6 +156,8 @@ EOF
         _lazy_entries | \awk -v q="$query" -F"|" '
             BEGIN {
                 if( q == tolower(q) ) imatch = 1
+                # Basic escape for literal awk regex translation
+                gsub(/\\./, "\\.", q)
                 gsub(/ /, ".*", q)
             }
             {
@@ -157,6 +190,7 @@ EOF
               return int(10000 * rank * (3.75/((0.0001 * dx + 1) + 0.25)))
             }
             BEGIN {
+                gsub(/\\./, "\\.", q)
                 gsub(" ", ".*", q)
                 hi_rank = ihi_rank = -9999999999
             }
@@ -183,7 +217,7 @@ EOF
                 return 0
             elif [ "$mode" = "file" ] && [ -f "$target_path" ]; then
                 (_lazy --add "$target_path" &)
-                ${_LAZY_EDITOR:-${EDITOR:-vi}} "$target_path"
+                _lazy_smart_open "$target_path"
                 return 0
             fi
         fi
@@ -228,13 +262,22 @@ cd() {
 
 eval "
 ${_LAZY_EDITOR_NAME}() {
-    if [ -f \"\$1\" ]; then
-        (_lazy --add \"\$1\" &)
-        command \${_LAZY_EDITOR:-\${EDITOR:-vi}} \"\$@\"
-    elif [[ \"\$1\" == */* ]]; then
-        command \${_LAZY_EDITOR:-\${EDITOR:-vi}} \"\$@\"
+    # Fix #6: Bypass fuzzy logic entirely if opening multiple files
+    if [ \$# -gt 1 ]; then
+        _lazy_smart_open \"\$@\"
+        return
+    fi
+
+    if [ -f \"\$1\" ] || [[ \"\$1\" == */* ]]; then
+        local abs_path
+        abs_path=\"\$(realpath -m \"\$1\" 2>/dev/null || echo \"\$1\")\"
+        
+        [ -f \"\$1\" ] && (_lazy --add \"\$abs_path\" &)
+        _lazy_smart_open \"\$@\"
     else
-        _lazy file \"\$@\" || command \${_LAZY_EDITOR:-\${EDITOR:-vi}} \"\$@\"
+        _lazy file \"\$@\" || {
+            _lazy_smart_open \"\$@\"
+        }
     fi
 }
 "

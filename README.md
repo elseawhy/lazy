@@ -1,21 +1,20 @@
 # lazy
 
-`lazy` is a heavily stripped-down fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path.
+`lazy` is a heavily stripped-down, zero-bloat fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path.
 
-This fork extends the exact same concept to **files**, but removes all the bloated manual CLI commands. It is designed to be a completely silent, drop-in background utility that simply makes your `cd` and your `$EDITOR` smart. That's it. 
+This fork extends the exact same concept to **files**, but removes all the clunky manual CLI commands. It is designed to be a completely silent, drop-in background utility that makes your `cd` and your `$EDITOR` incredibly smart.
 
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
-- Ships smart wrappers out of the box — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching. 
+- Ships smart wrappers out of the box — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
+- **Auto-Privilege Escalation:** If you attempt to open or jump to a file outside of your `$HOME` directory, the editor wrapper instantly recognizes the boundary and automatically executes `sudo -e` instead. Zero friction.
+- **Smart Environment Sync:** Automatically aligns `$SUDO_EDITOR` with your preferred editor so your elevated edits don't randomly launch `nano` or `vi`.
+- **Self-Cleaning:** Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
 - **Dynamically adapts to your editor:** Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
-- Tab completion is type-aware: completing after `cd` only offers directories, completing after your editor only offers files.
 - Tab completion is context-aware: an empty word suggests your history, a fuzzy fragment (no `/`) searches the frecency database, and a real path (contains `/`) falls straight through to normal filesystem completion.
-- Built-in `lazy help` (or `-h` / `--help`) prints the available tunables.
 
 All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa deadwyler](https://github.com/rupa). 
 
 ## Install
-
-**Crucial Step:** You MUST set your editor variable *before* you source the script, or the smart file wrapper won't configure itself properly.
 
 Put this in your `.bashrc` or `.zshrc`:
 
@@ -26,19 +25,24 @@ Put this in your `.bashrc` or `.zshrc`:
     # 2. Source the script
     . /path/to/lazy
 
+*(Note: If you completely forget to set your editor variables, the script will gracefully default to `nvim`.)*
+
 Then just use your terminal normally — `cd` around, open a few files — for a day or two to build up the database. 
 
 ## Use
 
 There are no clunky `lazy file foo` or `lazy dir foo` commands to memorize. Just use your normal commands, and the script handles the rest quietly in the background.
 
-Assuming you set `_LAZY_EDITOR="micro"`, your workflow looks like this:
+Assuming you set `_LAZY_EDITOR="nvim"`, your workflow looks like this:
 
     cd foo          # fuzzy-cd fallback when foo isn't a real directory
-    micro foo       # fuzzy-open fallback when foo isn't a real file in the DB
-    micro ./foo     # bypasses the database to explicitly create/open a file in $PWD
+    nvim foo        # fuzzy-open fallback when foo isn't a real file in the DB
+    nvim ./foo      # bypasses the database to explicitly create/open a file in $PWD
+    nvim file1 file2 # bypasses the database entirely to open multiple files normally
+    nvim fstab      # fuzzy-resolves in user-space, detects it's outside $HOME, and runs sudo -e /etc/fstab
+    nvim /etc/hosts # bypasses the database, detects it's outside $HOME, and runs sudo -e /etc/hosts
 
-*(If your editor is `emacs`, just swap `micro` with `emacs` in the above examples.)*
+*(If your editor is `emacs` or `micro`, just swap `nvim` in the above examples.)*
 
 ### Tunables
 
@@ -75,10 +79,8 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 
 ## Do's and Don'ts
 
-- **Don't** source `lazy` in root's `.bashrc`/`.zshrc`, or run it as root via `sudo -s` without care. `cd()` and your editor wrapper are shell functions, not real binaries. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
-- **Don't** run `sudo $EDITOR foo` expecting the fuzzy-search to work. `sudo` execs a literal binary from `$PATH` — it has no idea your editor is a function in your normal shell, so it will bypass the script entirely.
-- **Do** use `sudoedit /path/to/file` (or `sudo -e /path/to/file`) when you need to edit a file you don't own. It edits a temp copy under your own user, which is cleaner than trying to force the jump-list to work under `sudo`.
-- **Do** keep `lazy` scoped to your normal user shell. 
+- **Don't** source `lazy` in root's `.bashrc`/`.zshrc`. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
+- **Don't** manually run `sudo nvim foo`. Your shell will completely bypass this script's intelligence, skip the frecency database, and break the automation. Just let the wrapper handle the elevation for you natively!
 
 ## License
 
