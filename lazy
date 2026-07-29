@@ -31,12 +31,6 @@ TUNABLES (export these in .bashrc/.zshrc before sourcing $cmd)
   _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)
   _LAZY_MAX_SCORE         aging threshold before scores decay (default: 9000)
   _LAZY_EDITOR            program used to open matched files (default: \$EDITOR, else vi)
-  _LAZY_OWNER             username to chown datafiles to (for use under sudo)
-  _LAZY_EXCLUDE_DIRS      array of path prefixes to never track
-  _LAZY_NO_RESOLVE_SYMLINKS   don't resolve symlinks when tracking \$PWD
-  _LAZY_NO_PROMPT_COMMAND     don't auto-hook PROMPT_COMMAND/precmd to track \$PWD
-  _LAZY_NO_CD_WRAP        don't define the built-in cd() wrapper
-  _LAZY_NO_E_WRAP         don't define the built-in e() wrapper
 EOF
             return
             ;;
@@ -47,9 +41,6 @@ EOF
 
     [ -h "$dirfile" ] && dirfile=$(readlink "$dirfile")
     [ -h "$filefile" ] && filefile=$(readlink "$filefile")
-
-    [ -z "$_LAZY_OWNER" -a -f "$dirfile" -a ! -O "$dirfile" ] && return
-    [ -z "$_LAZY_OWNER" -a -f "$filefile" -a ! -O "$filefile" ] && return
 
     local mode=""
 
@@ -78,13 +69,6 @@ EOF
     if [ "$1" = "--add" ]; then
         shift
         [ "$*" = "$HOME" -o "$*" = '/' ] && return
-
-        if [ ${#_LAZY_EXCLUDE_DIRS[@]} -gt 0 ]; then
-            local exclude
-            for exclude in "${_LAZY_EXCLUDE_DIRS[@]}"; do
-                case "$*" in "$exclude"*) return;; esac
-            done
-        fi
 
         local target type
         if [ -d "$*" ]; then
@@ -122,7 +106,6 @@ EOF
         if [ $? -ne 0 -a -f "$target" ]; then
             \env rm -f "$tempfile"
         else
-            [ "$_LAZY_OWNER" ] && chown $_LAZY_OWNER:"$(id -ng $_LAZY_OWNER)" "$tempfile"
             \env mv -f "$tempfile" "$target" || \env rm -f "$tempfile"
         fi
 
@@ -133,11 +116,11 @@ EOF
         case "$firstword" in
             cd) mode="dir";;
             "$_LAZY_EDITOR_NAME") mode="file";;
-            *) return;; # Only supply completion for cd/editor wrappers
+            *) return;; 
         esac
         
         local query="${complline#"$firstword" }"
-        case "$query" in */*) return;; esac # Let bash handle actual paths
+        case "$query" in */*) return;; esac 
 
         _lazy_entries | \awk -v q="$query" -F"|" '
             BEGIN {
@@ -205,58 +188,45 @@ EOF
             fi
         fi
         
-        # CRITICAL FIX: Explicitly return 1 if no match was found/opened
         return 1
     fi
 }
 
 alias ${_LAZY_CMD:-lazy}='_lazy 2>&1'
 
-[ "$_LAZY_NO_RESOLVE_SYMLINKS" ] || _LAZY_RESOLVE_SYMLINKS="-P"
-
 if type compctl >/dev/null 2>&1; then
     # zsh
-    [ "$_LAZY_NO_PROMPT_COMMAND" ] || {
-        if [ "$_LAZY_NO_RESOLVE_SYMLINKS" ]; then
-            _lazy_precmd() { (_lazy --add "${PWD:a}" &); : $RANDOM; }
-        else
-            _lazy_precmd() { (_lazy --add "${PWD:A}" &); : $RANDOM; }
-        fi
-        [[ -n "${precmd_functions[(r)_lazy_precmd]}" ]] || {
-            precmd_functions[$(($#precmd_functions+1))]=_lazy_precmd
-        }
+    _lazy_precmd() { (_lazy --add "${PWD:A}" &); : $RANDOM; }
+    [[ -n "${precmd_functions[(r)_lazy_precmd]}" ]] || {
+        precmd_functions[$(($#precmd_functions+1))]=_lazy_precmd
     }
     _lazy_zsh_tab_completion() {
         local compl
         read -l compl
         reply=(${(f)"$(_lazy --complete "$compl")"})
     }
-    [ "$_LAZY_NO_CD_WRAP" ] || compctl -U -K _lazy_zsh_tab_completion cd
-    [ "$_LAZY_NO_E_WRAP" ] || compctl -U -K _lazy_zsh_tab_completion "$_LAZY_EDITOR_NAME"
+    compctl -U -K _lazy_zsh_tab_completion cd
+    compctl -U -K _lazy_zsh_tab_completion "$_LAZY_EDITOR_NAME"
 elif type complete >/dev/null 2>&1; then
     # bash
-    [ "$_LAZY_NO_CD_WRAP" ] || complete -o filenames -o dirnames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' cd
-    [ "$_LAZY_NO_E_WRAP" ] || complete -o filenames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' "$_LAZY_EDITOR_NAME"
-    [ "$_LAZY_NO_PROMPT_COMMAND" ] || {
-        grep "_lazy --add" <<< "$PROMPT_COMMAND" >/dev/null || {
-            PROMPT_COMMAND="$PROMPT_COMMAND"$'\n''(_lazy --add "$(command pwd '$_LAZY_RESOLVE_SYMLINKS' 2>/dev/null)" 2>/dev/null &);'
-        }
+    complete -o filenames -o dirnames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' cd
+    complete -o filenames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' "$_LAZY_EDITOR_NAME"
+    grep "_lazy --add" <<< "$PROMPT_COMMAND" >/dev/null || {
+        PROMPT_COMMAND="$PROMPT_COMMAND"$'\n''(_lazy --add "$(command pwd -P 2>/dev/null)" 2>/dev/null &);'
     }
 fi
 
-[ "$_LAZY_NO_CD_WRAP" ] || {
-    cd() {
-        if [ $# -eq 0 ]; then
-            builtin cd "$HOME" || return
-        elif [ -d "$1" ] || [ "$1" = "-" ]; then
-            builtin cd "$@" || return
-        else
-            _lazy dir "$@" || builtin cd "$@"
-        fi
-    }
+cd() {
+    if [ $# -eq 0 ]; then
+        builtin cd "$HOME" || return
+    elif [ -d "$1" ] || [ "$1" = "-" ]; then
+        builtin cd "$@" || return
+    else
+        _lazy dir "$@" || builtin cd "$@"
+    fi
 }
 
-[ "$_LAZY_NO_E_WRAP" ] || eval "
+eval "
 ${_LAZY_EDITOR_NAME}() {
     if [ -f \"\$1\" ]; then
         (_lazy --add \"\$1\" &)

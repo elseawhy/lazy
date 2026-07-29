@@ -51,12 +51,6 @@ You can override these by exporting them before the `source` line:
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
 | `_LAZY_EDITOR` | `$EDITOR`, else `vi` | program used to open matched files |
-| `_LAZY_OWNER` | — | username to chown datafiles to (for `sudo -s` use) |
-| `_LAZY_EXCLUDE_DIRS` | — | array of path prefixes to never track |
-| `_LAZY_NO_RESOLVE_SYMLINKS` | — | don't resolve symlinks when tracking `$PWD` |
-| `_LAZY_NO_PROMPT_COMMAND` | — | don't auto-hook `PROMPT_COMMAND`/`precmd` |
-| `_LAZY_NO_CD_WRAP` | — | don't define the built-in `cd()` wrapper |
-| `_LAZY_NO_E_WRAP` | — | don't define the built-in editor wrapper |
 
 ### Tab completion
 
