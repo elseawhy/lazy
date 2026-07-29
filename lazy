@@ -210,6 +210,15 @@ EOF
             dir)  query="${query#dir }";;
             file) query="${query#file }";;
         esac
+
+        # If the word being typed already looks like a real relative/absolute
+        # path (contains a /), this isn't a frecency lookup anymore - print
+        # nothing and let bash's normal filename completion (-o default /
+        # -o bashdefault on the `complete` registration) take over instead.
+        case "$query" in
+            */*) return;;
+        esac
+
         _lazy_entries | \awk -v q="$query" -F"|" '
             BEGIN {
                 if( q == tolower(q) ) imatch = 1
@@ -388,14 +397,18 @@ if type compctl >/dev/null 2>&1; then
         reply=(${(f)"$(_lazy --complete "$compl")"})
     }
     compctl -U -K _lazy_zsh_tab_completion _lazy
+    # note: unlike bash's -o default/-o bashdefault, compctl has no automatic
+    # "fall back to real filename completion" mode here, so typing an
+    # explicit path (containing /) under zsh won't hand off to normal path
+    # completion the way it does under bash.
     [ "$_LAZY_NO_CD_WRAP" ] || compctl -U -K _lazy_zsh_tab_completion cd
     [ "$_LAZY_NO_E_WRAP" ] || compctl -U -K _lazy_zsh_tab_completion e
 elif type complete >/dev/null 2>&1; then
     # bash
     # tab completion
-    complete -o filenames -C '_lazy --complete "$COMP_LINE"' ${_LAZY_CMD:-lazy}
-    [ "$_LAZY_NO_CD_WRAP" ] || complete -o filenames -o dirnames -C '_lazy --complete "$COMP_LINE"' cd
-    [ "$_LAZY_NO_E_WRAP" ] || complete -o filenames -o dirnames -C '_lazy --complete "$COMP_LINE"' e
+    complete -o filenames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' ${_LAZY_CMD:-lazy}
+    [ "$_LAZY_NO_CD_WRAP" ] || complete -o filenames -o dirnames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' cd
+    [ "$_LAZY_NO_E_WRAP" ] || complete -o filenames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' e
     [ "$_LAZY_NO_PROMPT_COMMAND" ] || {
         # populate directory list. avoid clobbering other PROMPT_COMMANDs.
         grep "_lazy --add" <<< "$PROMPT_COMMAND" >/dev/null || {

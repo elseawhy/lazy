@@ -14,6 +14,11 @@ in a couple of quality-of-life changes on top:
   opens the result in your editor.
 - Tab completion is type-aware: completing after `cd` only offers
   directories, completing after `e` only offers files.
+- Tab completion is also context-aware: an empty word suggests your
+  history, a fuzzy fragment (no `/`) searches the frecency database, and a
+  real relative/absolute path (contains `/`) falls straight through to
+  normal filesystem completion — so typing a path out by hand still works
+  exactly like it always has.
 - A configurable `$_LAZY_EDITOR` controls what opens matched files — change
   editors without touching any function or alias.
 - Built-in `lazy help` (or `-h` / `--help`) prints every flag and tunable.
@@ -83,6 +88,28 @@ e foo                 fuzzy-open fallback when foo isn't a real file
 | `_LAZY_NO_PROMPT_COMMAND` | — | don't auto-hook `PROMPT_COMMAND`/`precmd` |
 | `_LAZY_NO_CD_WRAP` | — | don't define the built-in `cd()` wrapper |
 | `_LAZY_NO_E_WRAP` | — | don't define the built-in `e()` wrapper |
+
+### Tab completion
+
+Completion is context-aware, based on what you've typed so far:
+
+| You type | What happens |
+| --- | --- |
+| `cd <TAB>` | lists your directory history from `.lazydir` |
+| `e <TAB>` | lists your file history from `.lazyfile` |
+| `cd te<TAB>` | fuzzy-matches `te` against directory history |
+| `e te<TAB>` | fuzzy-matches `te` against file history |
+| `cd /some/real/path<TAB>` | falls straight through to normal filesystem completion |
+| `e /some/real/path<TAB>` | falls straight through to normal filesystem completion (files and dirs) |
+
+The rule of thumb: no `/` in what you've typed means it's treated as a
+frecency search; a `/` means you're typing a real path, so `lazy` gets out
+of the way and lets your shell's usual filename completion handle it.
+
+> **Note:** this fallback relies on bash's `-o default`/`-o bashdefault`
+> completion options. Under zsh's `compctl`, there's no equivalent
+> automatic fallback, so typing an explicit path currently only searches
+> the frecency database even under zsh.
 
 ## How it works
 
