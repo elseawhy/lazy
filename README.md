@@ -21,7 +21,7 @@ This tool is built for users who...
 - **Want `zoxide` for files** — You love the frictionless, frecency-based jumping of tools like `z` or `zoxide` for directories, and you want that exact same magic for opening your most-used files.
 - **Crave workflow QoL** — You want your environment to be smart enough to find the file you need without forcing you to memorize or type out tedious absolute and relative paths.
 - **Are tired of `sudo $EDITOR`** — You hate opening a system configuration file, getting a "Permission denied" error on save, and having to back out just to type `sudo !!`. 
-- **Prioritize strict security** — You want a robust, secure way to edit system root files. This script automatically invoke `sudo -e` (sudoedit) for anything outside your home directory, you never have to type `sudo` to edit files outside of your home directory.
+- **Prioritize strict security** — You want a robust, secure way to edit system root files. This script automatically invoke `sudo -e` (sudoedit) for anything outside your home directory, you never have to type `sudo`.
 
 ## Install
 
@@ -86,7 +86,7 @@ Each line in a datafile is `path|rank|last_accessed_epoch`. Every time you visit
 
 Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
 
-## Do's and Don'ts
+## Don'ts
 
 - **Don't** source `lazy` in root's `.bashrc`/`.zshrc`. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
 - **Don't** manually run `sudo nvim foo`. Your shell will completely bypass this script's intelligence, skip the frecency database, and break the automation. Just let the wrapper handle the elevation for you natively!
