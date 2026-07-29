@@ -36,7 +36,7 @@ Put this in your `.bashrc` or `.zshrc`
     # 2. Source the script
     . /path/to/lazy
 
-*(Quick note — If you completely forget to set your editor variables, the script will gracefully default to `nvim`.)*
+*(Quick note — If you completely forget to set your editor variables, the script will gracefully default to `nano`.)*
 
 Then just use your terminal normally — `cd` around, open a few files — for a day or two to build up the database. 
 
