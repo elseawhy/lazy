@@ -1,40 +1,6 @@
 # Copyright (c) 2009 rupa deadwyler. Licensed under the WTFPL license, Version 2
 # Forked/extended: tracks files as well as directories, renamed z -> lazy.
-
-# maintains a jump-list of the files and directories you actually use
-#
-# INSTALL:
-#     * put something like this in your .bashrc/.zshrc:
-#         . /path/to/lazy
-#     * cd around / open files for a while to build up the db
-#     * PROFIT!!
-#     * the script defines cd() and e() wrapper functions for you (dir/file
-#       fallback + tab completion). If you'd rather define your own:
-#         set $_LAZY_NO_CD_WRAP to skip the cd() wrapper.
-#         set $_LAZY_NO_E_WRAP to skip the e() wrapper.
-#     * optionally:
-#         set $_LAZY_CMD in .bashrc/.zshrc to change the command (default lazy).
-#         set $_LAZY_DIR_DATA to change the directory datafile (default ~/.lazydir).
-#         set $_LAZY_FILE_DATA to change the file datafile (default ~/.lazyfile).
-#         set $_LAZY_MAX_SCORE lower to age entries out faster (default 9000).
-#         set $_LAZY_EDITOR to the program used to open matched files (default $EDITOR, else vi).
-#         set $_LAZY_NO_RESOLVE_SYMLINKS to prevent symlink resolution.
-#         set $_LAZY_NO_PROMPT_COMMAND if you're handling PROMPT_COMMAND yourself.
-#         set $_LAZY_EXCLUDE_DIRS to an array of directories to exclude.
-#         set $_LAZY_OWNER to your username if you want use lazy while sudo with $HOME kept
-#
-# USE:
-#     * lazy foo      # cd/open to most frecent match (dir -> cd, file -> $_LAZY_EDITOR)
-#     * lazy dir foo   # restrict matches to directories, cd to the best one
-#     * lazy file foo  # restrict matches to files, open the best one in $_LAZY_EDITOR
-#     * lazy foo bar  # match against foo and bar
-#     * lazy -r foo   # go to highest ranked match
-#     * lazy -t foo   # go to most recently accessed match
-#     * lazy -l foo   # list matches instead of acting on them
-#     * lazy -e foo   # echo the best match, don't cd/open
-#     * lazy -c foo   # restrict matches to subdirs of $PWD
-#     * lazy -x       # remove the current directory from the datafile
-#     * lazy -h       # show a brief help message
+# Stripped down for minimal "drop-in" smart cd/editor usage.
 
 [ -d "${_LAZY_DIR_DATA:-$HOME/.lazydir}" ] && {
     echo "ERROR: lazy's directory datafile (${_LAZY_DIR_DATA:-$HOME/.lazydir}) is a directory."
@@ -43,35 +9,21 @@
     echo "ERROR: lazy's file datafile (${_LAZY_FILE_DATA:-$HOME/.lazyfile}) is a directory."
 }
 
-_lazy() {
+_LAZY_EDITOR_NAME="${_LAZY_EDITOR:-${EDITOR:-vi}}"
+_LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME%% *}"
 
-    # help / usage, checked first so it works with no datafiles present
+_lazy() {
+    # 1. Help menu
     case "$1" in
         help|-h|--help)
             local cmd="${_LAZY_CMD:-lazy}"
             cat <<EOF
-$cmd - frecency-based jump list for directories and files
+$cmd - frecency-based smart cd and editor launcher
 
 USAGE
-  $cmd foo             go to the best match (dir -> cd, file -> open in \$_LAZY_EDITOR)
-  $cmd dir foo         restrict matches to directories, cd to the best one
-  $cmd file foo        restrict matches to files, open the best one
-  $cmd foo bar         match against multiple terms (space = wildcard)
-  cd foo               (if cd() wrapper is enabled) falls back to '$cmd dir foo'
-  e foo                (if e() wrapper is enabled) falls back to '$cmd file foo'
-
-  NOTE: the "dir"/"file" subcommand must come immediately after '$cmd',
-  before any flags, e.g. '$cmd file -e foo', not '$cmd -e file foo'.
-
-FLAGS (combine like -le, put after dir/file if used)
-  -c    restrict matches to subdirectories of \$PWD
-  -e    echo the best match instead of cd-ing/opening it
-  -h    show this help (also: '$cmd help', '$cmd --help')
-  -l    list all matches instead of acting on one
-  -r    go by highest rank instead of frecency
-  -t    go by most recently accessed instead of frecency
-  -x    remove the current directory from the directory datafile
-  --    treat all remaining args as literal search terms
+  $cmd help            show this help
+  cd foo               falls back to smart directory jump
+  $_LAZY_EDITOR_NAME foo               falls back to smart file open
 
 TUNABLES (export these in .bashrc/.zshrc before sourcing $cmd)
   _LAZY_CMD               command name to alias '_lazy' to (default: lazy)
@@ -85,9 +37,6 @@ TUNABLES (export these in .bashrc/.zshrc before sourcing $cmd)
   _LAZY_NO_PROMPT_COMMAND     don't auto-hook PROMPT_COMMAND/precmd to track \$PWD
   _LAZY_NO_CD_WRAP        don't define the built-in cd() wrapper
   _LAZY_NO_E_WRAP         don't define the built-in e() wrapper
-
-DATA FORMAT
-  Each line in a datafile is: path|rank|last_accessed_epoch
 EOF
             return
             ;;
@@ -96,18 +45,14 @@ EOF
     local dirfile="${_LAZY_DIR_DATA:-$HOME/.lazydir}"
     local filefile="${_LAZY_FILE_DATA:-$HOME/.lazyfile}"
 
-    # if symlink, dereference
     [ -h "$dirfile" ] && dirfile=$(readlink "$dirfile")
     [ -h "$filefile" ] && filefile=$(readlink "$filefile")
 
-    # bail if we don't own the datafiles and $_LAZY_OWNER not set
     [ -z "$_LAZY_OWNER" -a -f "$dirfile" -a ! -O "$dirfile" ] && return
     [ -z "$_LAZY_OWNER" -a -f "$filefile" -a ! -O "$filefile" ] && return
 
-    # mode: "" = files+dirs, "file" = files only, "dir" = directories only
     local mode=""
 
-    # read one datafile, keeping only entries whose path still exists as $2 (d|f)
     _lazy_read () {
         local f="$1" type="$2" line p
         [ -f "$f" ] || return 0
@@ -126,18 +71,14 @@ EOF
         case "$mode" in
             file) _lazy_read "$filefile" f;;
             dir)  _lazy_read "$dirfile" d;;
-            *)    _lazy_read "$dirfile" d; _lazy_read "$filefile" f;;
         esac
     }
 
-    # add entries
+    # 2. Add entry
     if [ "$1" = "--add" ]; then
         shift
-
-        # $HOME and / aren't worth matching
         [ "$*" = "$HOME" -o "$*" = '/' ] && return
 
-        # don't track excluded directory trees
         if [ ${#_LAZY_EXCLUDE_DIRS[@]} -gt 0 ]; then
             local exclude
             for exclude in "${_LAZY_EXCLUDE_DIRS[@]}"; do
@@ -145,7 +86,6 @@ EOF
             done
         fi
 
-        # figure out which datafile this path belongs in
         local target type
         if [ -d "$*" ]; then
             target="$dirfile"; type=d
@@ -155,7 +95,6 @@ EOF
             return
         fi
 
-        # maintain the data file
         local tempfile="$target.$RANDOM"
         local score=${_LAZY_MAX_SCORE:-9000}
         _lazy_read "$target" "$type" | \awk -v path="$*" -v now="$(\date +%s)" -v score=$score -F"|" '
@@ -164,7 +103,6 @@ EOF
                 time[path] = now
             }
             $2 >= 1 {
-                # drop ranks below 1
                 if( $1 == path ) {
                     rank[$1] = $2 + 1
                     time[$1] = now
@@ -176,12 +114,11 @@ EOF
             }
             END {
                 if( count > score ) {
-                    # aging
                     for( x in rank ) print x "|" 0.99*rank[x] "|" time[x]
                 } else for( x in rank ) print x "|" rank[x] "|" time[x]
             }
         ' 2>/dev/null >| "$tempfile"
-        # do our best to avoid clobbering the datafile in a race condition.
+
         if [ $? -ne 0 -a -f "$target" ]; then
             \env rm -f "$tempfile"
         else
@@ -189,35 +126,18 @@ EOF
             \env mv -f "$tempfile" "$target" || \env rm -f "$tempfile"
         fi
 
-    # tab completion
+    # 3. Tab completion
     elif [ "$1" = "--complete" -a \( -s "$dirfile" -o -s "$filefile" \) ]; then
-        # $2 is the full line being completed (e.g. "cd fo", "e fo", "lazy file fo").
-        # Use its leading word(s) to decide which datafile(s) to search.
         local complline="$2" firstword
         firstword="${complline%% *}"
         case "$firstword" in
             cd) mode="dir";;
-            e)  mode="file";;
-            *)
-                case "$complline" in
-                    "$firstword dir "*)  mode="dir";;
-                    "$firstword file "*) mode="file";;
-                esac
-                ;;
+            "$_LAZY_EDITOR_NAME") mode="file";;
+            *) return;; # Only supply completion for cd/editor wrappers
         esac
+        
         local query="${complline#"$firstword" }"
-        case "$mode" in
-            dir)  query="${query#dir }";;
-            file) query="${query#file }";;
-        esac
-
-        # If the word being typed already looks like a real relative/absolute
-        # path (contains a /), this isn't a frecency lookup anymore - print
-        # nothing and let bash's normal filename completion (-o default /
-        # -o bashdefault on the `complete` registration) take over instead.
-        case "$query" in
-            */*) return;;
-        esac
+        case "$query" in */*) return;; esac # Let bash handle actual paths
 
         _lazy_entries | \awk -v q="$query" -F"|" '
             BEGIN {
@@ -231,139 +151,62 @@ EOF
             }
         ' 2>/dev/null
 
+    # 4. Search and Go
     else
-        # list/go
-
-        # optional leading "file" / "dir" subcommand to restrict match type
         case "$1" in
             file) mode="file"; shift;;
             dir)  mode="dir"; shift;;
+            *) return 1;; 
         esac
 
-        local echo fnd last list opt typ
-        while [ "$1" ]; do case "$1" in
-            --) while [ "$1" ]; do shift; fnd="$fnd${fnd:+ }$1";done;;
-            -*) opt=${1:1}; while [ "$opt" ]; do case ${opt:0:1} in
-                    c) fnd="^$PWD $fnd";;
-                    e) echo=1;;
-                    h) _lazy help; return;;
-                    l) list=1;;
-                    r) typ="rank";;
-                    t) typ="recent";;
-                    x) \sed -i -e "\:^${PWD}|.*:d" "$dirfile";;
-                esac; opt=${opt:1}; done;;
-             *) fnd="$fnd${fnd:+ }$1";;
-        esac; last=$1; [ "$#" -gt 0 ] && shift; done
-        [ "$fnd" -a "$fnd" != "^$PWD " ] || list=1
+        local fnd="$*"
+        [ -n "$fnd" ] || return 1
 
-        # if we hit enter on a completion just go there
-        case "$last" in
-            # completions will always start with /
-            /*)
-                if [ -z "$list" ]; then
-                    if [ -d "$last" ]; then
-                        builtin cd "$last" && return
-                    elif [ -f "$last" ]; then
-                        (_lazy --add "$last" &)
-                        ${_LAZY_EDITOR:-${EDITOR:-vi}} "$last"
-                        return
-                    fi
-                fi
-            ;;
-        esac
-
-        # no data yet for the relevant type(s)
         case "$mode" in
-            file) [ -f "$filefile" ] || return;;
-            dir)  [ -f "$dirfile" ] || return;;
-            *)    [ -f "$dirfile" -o -f "$filefile" ] || return;;
+            file) [ -f "$filefile" ] || return 1;;
+            dir)  [ -f "$dirfile" ] || return 1;;
         esac
 
-        local cd
-        cd="$( < <( _lazy_entries ) \awk -v t="$(\date +%s)" -v list="$list" -v typ="$typ" -v q="$fnd" -F"|" '
+        local target_path
+        target_path="$( < <( _lazy_entries ) \awk -v t="$(\date +%s)" -v q="$fnd" -F"|" '
             function frecent(rank, time) {
-              # relate frequency and time
               dx = t - time
               return int(10000 * rank * (3.75/((0.0001 * dx + 1) + 0.25)))
-            }
-            function output(matches, best_match, common) {
-                # list or return the desired entry
-                if( list ) {
-                    if( common ) {
-                        printf "%-10s %s\n", "common:", common > "/dev/stderr"
-                    }
-                    cmd = "sort -n >&2"
-                    for( x in matches ) {
-                        if( matches[x] ) {
-                            printf "%-10s %s\n", matches[x], x | cmd
-                        }
-                    }
-                } else {
-                    if( common && !typ ) best_match = common
-                    print best_match
-                }
-            }
-            function common(matches) {
-                # find the common root of a list of matches, if it exists
-                for( x in matches ) {
-                    if( matches[x] && (!short || length(x) < length(short)) ) {
-                        short = x
-                    }
-                }
-                if( short == "/" ) return
-                for( x in matches ) if( matches[x] && index(x, short) != 1 ) {
-                    return
-                }
-                return short
             }
             BEGIN {
                 gsub(" ", ".*", q)
                 hi_rank = ihi_rank = -9999999999
             }
             {
-                if( typ == "rank" ) {
-                    rank = $2
-                } else if( typ == "recent" ) {
-                    rank = $3 - t
-                } else rank = frecent($2, $3)
+                rank = frecent($2, $3)
                 if( $1 ~ q ) {
-                    matches[$1] = rank
-                } else if( tolower($1) ~ tolower(q) ) imatches[$1] = rank
-                if( matches[$1] && matches[$1] > hi_rank ) {
-                    best_match = $1
-                    hi_rank = matches[$1]
-                } else if( imatches[$1] && imatches[$1] > ihi_rank ) {
-                    ibest_match = $1
-                    ihi_rank = imatches[$1]
+                    if( rank > hi_rank ) { best_match = $1; hi_rank = rank }
+                } else if( tolower($1) ~ tolower(q) ) {
+                    if( rank > ihi_rank ) { ibest_match = $1; ihi_rank = rank }
                 }
             }
             END {
-                # prefer case sensitive
-                if( best_match ) {
-                    output(matches, best_match, common(matches))
-                    exit
-                } else if( ibest_match ) {
-                    output(imatches, ibest_match, common(imatches))
-                    exit
-                }
+                if( best_match ) { print best_match; exit }
+                if( ibest_match ) { print ibest_match; exit }
                 exit(1)
             }
         ')"
+        
+        local awk_ret=$?
 
-        if [ "$?" -eq 0 ]; then
-          if [ "$cd" ]; then
-            if [ "$echo" ]; then
-                echo "$cd"
-            elif [ -d "$cd" ]; then
-                builtin cd "$cd"
-            elif [ -f "$cd" ]; then
-                (_lazy --add "$cd" &)
-                ${_LAZY_EDITOR:-${EDITOR:-vi}} "$cd"
+        if [ "$awk_ret" -eq 0 ] && [ -n "$target_path" ]; then
+            if [ "$mode" = "dir" ] && [ -d "$target_path" ]; then
+                builtin cd "$target_path"
+                return 0
+            elif [ "$mode" = "file" ] && [ -f "$target_path" ]; then
+                (_lazy --add "$target_path" &)
+                ${_LAZY_EDITOR:-${EDITOR:-vi}} "$target_path"
+                return 0
             fi
-          fi
-        else
-          return $?
         fi
+        
+        # CRITICAL FIX: Explicitly return 1 if no match was found/opened
+        return 1
     fi
 }
 
@@ -374,51 +217,33 @@ alias ${_LAZY_CMD:-lazy}='_lazy 2>&1'
 if type compctl >/dev/null 2>&1; then
     # zsh
     [ "$_LAZY_NO_PROMPT_COMMAND" ] || {
-        # populate directory list, avoid clobbering any other precmds.
         if [ "$_LAZY_NO_RESOLVE_SYMLINKS" ]; then
-            _lazy_precmd() {
-                (_lazy --add "${PWD:a}" &)
-                : $RANDOM
-            }
+            _lazy_precmd() { (_lazy --add "${PWD:a}" &); : $RANDOM; }
         else
-            _lazy_precmd() {
-                (_lazy --add "${PWD:A}" &)
-                : $RANDOM
-            }
+            _lazy_precmd() { (_lazy --add "${PWD:A}" &); : $RANDOM; }
         fi
         [[ -n "${precmd_functions[(r)_lazy_precmd]}" ]] || {
             precmd_functions[$(($#precmd_functions+1))]=_lazy_precmd
         }
     }
     _lazy_zsh_tab_completion() {
-        # tab completion
         local compl
         read -l compl
         reply=(${(f)"$(_lazy --complete "$compl")"})
     }
-    compctl -U -K _lazy_zsh_tab_completion _lazy
-    # note: unlike bash's -o default/-o bashdefault, compctl has no automatic
-    # "fall back to real filename completion" mode here, so typing an
-    # explicit path (containing /) under zsh won't hand off to normal path
-    # completion the way it does under bash.
     [ "$_LAZY_NO_CD_WRAP" ] || compctl -U -K _lazy_zsh_tab_completion cd
-    [ "$_LAZY_NO_E_WRAP" ] || compctl -U -K _lazy_zsh_tab_completion e
+    [ "$_LAZY_NO_E_WRAP" ] || compctl -U -K _lazy_zsh_tab_completion "$_LAZY_EDITOR_NAME"
 elif type complete >/dev/null 2>&1; then
     # bash
-    # tab completion
-    complete -o filenames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' ${_LAZY_CMD:-lazy}
     [ "$_LAZY_NO_CD_WRAP" ] || complete -o filenames -o dirnames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' cd
-    [ "$_LAZY_NO_E_WRAP" ] || complete -o filenames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' e
+    [ "$_LAZY_NO_E_WRAP" ] || complete -o filenames -o bashdefault -o default -C '_lazy --complete "$COMP_LINE"' "$_LAZY_EDITOR_NAME"
     [ "$_LAZY_NO_PROMPT_COMMAND" ] || {
-        # populate directory list. avoid clobbering other PROMPT_COMMANDs.
         grep "_lazy --add" <<< "$PROMPT_COMMAND" >/dev/null || {
             PROMPT_COMMAND="$PROMPT_COMMAND"$'\n''(_lazy --add "$(command pwd '$_LAZY_RESOLVE_SYMLINKS' 2>/dev/null)" 2>/dev/null &);'
         }
     }
 fi
 
-# cd wrapper: falls through to lazy directory matching when the arg isn't
-# a real directory. Set $_LAZY_NO_CD_WRAP to skip defining this.
 [ "$_LAZY_NO_CD_WRAP" ] || {
     cd() {
         if [ $# -eq 0 ]; then
@@ -426,20 +251,20 @@ fi
         elif [ -d "$1" ] || [ "$1" = "-" ]; then
             builtin cd "$@" || return
         else
-            _lazy dir "$@"
+            _lazy dir "$@" || builtin cd "$@"
         fi
     }
 }
 
-# e wrapper: opens a real file directly, otherwise falls through to lazy
-# file matching. Set $_LAZY_NO_E_WRAP to skip defining this.
-[ "$_LAZY_NO_E_WRAP" ] || {
-    e() {
-        if [ -f "$1" ]; then
-            (_lazy --add "$1" &)
-            ${_LAZY_EDITOR:-${EDITOR:-vi}} "$1"
-        else
-            _lazy file "$@"
-        fi
-    }
+[ "$_LAZY_NO_E_WRAP" ] || eval "
+${_LAZY_EDITOR_NAME}() {
+    if [ -f \"\$1\" ]; then
+        (_lazy --add \"\$1\" &)
+        command \${_LAZY_EDITOR:-\${EDITOR:-vi}} \"\$@\"
+    elif [[ \"\$1\" == */* ]]; then
+        command \${_LAZY_EDITOR:-\${EDITOR:-vi}} \"\$@\"
+    else
+        _lazy file \"\$@\" || command \${_LAZY_EDITOR:-\${EDITOR:-vi}} \"\$@\"
+    fi
 }
+"

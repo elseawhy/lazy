@@ -1,79 +1,48 @@
 # lazy
 
-`lazy` is a fork of [rupa/z](https://github.com/rupa/z) — a shell script that
-tracks your most-used directories by *frecency* (frequency + recency) so you
-can jump to them by typing a fragment of the name instead of the full path.
+`lazy` is a heavily stripped-down fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path.
 
-This fork extends the same idea to **files**, not just directories, and folds
-in a couple of quality-of-life changes on top:
+This fork extends the exact same concept to **files**, but removes all the bloated manual CLI commands. It is designed to be a completely silent, drop-in background utility that simply makes your `cd` and your `$EDITOR` smart. That's it. 
 
-- Tracks files and directories in **separate datafiles** (`~/.lazydir`,
-  `~/.lazyfile`), so directory and file matching never collide.
-- Ships `cd()` and `e()` wrapper functions out of the box — `cd` falls back
-  to fuzzy directory matching, `e` falls back to fuzzy file matching and
-  opens the result in your editor.
-- Tab completion is type-aware: completing after `cd` only offers
-  directories, completing after `e` only offers files.
-- Tab completion is also context-aware: an empty word suggests your
-  history, a fuzzy fragment (no `/`) searches the frecency database, and a
-  real relative/absolute path (contains `/`) falls straight through to
-  normal filesystem completion — so typing a path out by hand still works
-  exactly like it always has.
-- A configurable `$_LAZY_EDITOR` controls what opens matched files — change
-  editors without touching any function or alias.
-- Built-in `lazy help` (or `-h` / `--help`) prints every flag and tunable.
+- Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
+- Ships smart wrappers out of the box — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching. 
+- **Dynamically adapts to your editor:** Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
+- Tab completion is type-aware: completing after `cd` only offers directories, completing after your editor only offers files.
+- Tab completion is context-aware: an empty word suggests your history, a fuzzy fragment (no `/`) searches the frecency database, and a real path (contains `/`) falls straight through to normal filesystem completion.
+- Built-in `lazy help` (or `-h` / `--help`) prints the available tunables.
 
-All credit for the original algorithm, the frecency scoring, and the aging
-logic goes to [rupa deadwyler](https://github.com/rupa) — this is a fork,
-not a rewrite from scratch.
+All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa deadwyler](https://github.com/rupa). 
 
 ## Install
 
+**Crucial Step:** You MUST set your editor variable *before* you source the script, or the smart file wrapper won't configure itself properly.
+
 Put this in your `.bashrc` or `.zshrc`:
 
-```bash
-. /path/to/lazy
-```
+    # 1. Define your editor! (The script uses this to dynamically name the wrapper function)
+    # This works with nvim, emacs, micro, nano, etc.
+    export _LAZY_EDITOR="nvim"
+    
+    # 2. Source the script
+    . /path/to/lazy
 
-Then just use your shell normally — `cd` around, `e` a few files — for a
-day or two to build up the database. Optionally set any of the tunables
-below **before** the `source` line.
-
-```bash
-export _LAZY_MAX_SCORE=999999999999
-export _LAZY_EDITOR=nvim
-```
-
-Run `lazy help` any time for the full reference.
+Then just use your terminal normally — `cd` around, open a few files — for a day or two to build up the database. 
 
 ## Use
 
-```
-lazy foo             go to the best match (dir -> cd, file -> open in $_LAZY_EDITOR)
-lazy dir foo         restrict matches to directories, cd to the best one
-lazy file foo        restrict matches to files, open the best one
-lazy foo bar         match against multiple terms
-cd foo                fuzzy-cd fallback when foo isn't a real directory
-e foo                 fuzzy-open fallback when foo isn't a real file
-```
+There are no clunky `lazy file foo` or `lazy dir foo` commands to memorize. Just use your normal commands, and the script handles the rest quietly in the background.
 
-> The `dir`/`file` subcommand must come immediately after `lazy`, before any
-> flags — `lazy file -e foo`, not `lazy -e file foo`.
+Assuming you set `_LAZY_EDITOR="micro"`, your workflow looks like this:
 
-### Flags
+    cd foo          # fuzzy-cd fallback when foo isn't a real directory
+    micro foo       # fuzzy-open fallback when foo isn't a real file in the DB
+    micro ./foo     # bypasses the database to explicitly create/open a file in $PWD
 
-| Flag | Meaning |
-| --- | --- |
-| `-c` | restrict matches to subdirectories of `$PWD` |
-| `-e` | echo the best match instead of acting on it |
-| `-h` | show help (same as `lazy help`) |
-| `-l` | list all matches instead of acting on one |
-| `-r` | go by highest rank instead of frecency |
-| `-t` | go by most recently accessed instead of frecency |
-| `-x` | remove the current directory from the directory datafile |
-| `--` | treat all remaining args as literal search terms |
+*(If your editor is `emacs`, just swap `micro` with `emacs` in the above examples.)*
 
 ### Tunables
+
+You can override these by exporting them before the `source` line:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -87,68 +56,35 @@ e foo                 fuzzy-open fallback when foo isn't a real file
 | `_LAZY_NO_RESOLVE_SYMLINKS` | — | don't resolve symlinks when tracking `$PWD` |
 | `_LAZY_NO_PROMPT_COMMAND` | — | don't auto-hook `PROMPT_COMMAND`/`precmd` |
 | `_LAZY_NO_CD_WRAP` | — | don't define the built-in `cd()` wrapper |
-| `_LAZY_NO_E_WRAP` | — | don't define the built-in `e()` wrapper |
+| `_LAZY_NO_E_WRAP` | — | don't define the built-in editor wrapper |
 
 ### Tab completion
 
-Completion is context-aware, based on what you've typed so far:
+Completion is context-aware based on what you've typed (using `nvim` as an example here, but it adapts to your `_LAZY_EDITOR`):
 
 | You type | What happens |
 | --- | --- |
 | `cd <TAB>` | lists your directory history from `.lazydir` |
-| `e <TAB>` | lists your file history from `.lazyfile` |
+| `nvim <TAB>` | lists your file history from `.lazyfile` |
 | `cd te<TAB>` | fuzzy-matches `te` against directory history |
-| `e te<TAB>` | fuzzy-matches `te` against file history |
-| `cd /some/real/path<TAB>` | falls straight through to normal filesystem completion |
-| `e /some/real/path<TAB>` | falls straight through to normal filesystem completion (files and dirs) |
+| `nvim te<TAB>` | fuzzy-matches `te` against file history |
+| `cd /real/path<TAB>` | falls straight through to normal filesystem completion |
+| `nvim /real/path<TAB>` | falls straight through to normal filesystem completion |
 
-The rule of thumb: no `/` in what you've typed means it's treated as a
-frecency search; a `/` means you're typing a real path, so `lazy` gets out
-of the way and lets your shell's usual filename completion handle it.
-
-> **Note:** this fallback relies on bash's `-o default`/`-o bashdefault`
-> completion options. Under zsh's `compctl`, there's no equivalent
-> automatic fallback, so typing an explicit path currently only searches
-> the frecency database even under zsh.
+> **Note:** this fallback relies on bash's `-o default`/`-o bashdefault` completion options. Under zsh's `compctl`, there's no equivalent automatic fallback, so typing an explicit path currently only searches the frecency database even under zsh.
 
 ## How it works
 
-Each line in a datafile is `path|rank|last_accessed_epoch`. Every time you
-visit a directory (via the shell prompt hook) or open a file (via `e`), its
-rank is bumped and its timestamp updated. Frecency is computed at query time
-by weighting rank against how recently the entry was touched, so something
-used a lot a while ago and something used once five minutes ago can both
-surface near the top, depending on the exact numbers. When the sum of all
-ranks in a datafile crosses `$_LAZY_MAX_SCORE`, every rank is aged down by a
-factor of 0.99 to keep old, stale entries from dominating forever.
+Each line in a datafile is `path|rank|last_accessed_epoch`. Every time you visit a directory or open a file via your editor wrapper, its rank is bumped and its timestamp updated. Frecency is computed at query time by weighting rank against how recently the entry was touched. When the sum of all ranks in a datafile crosses `$_LAZY_MAX_SCORE`, every rank is aged down by a factor of 0.99 to keep old entries from dominating forever.
 
-Files are only added to `~/.lazyfile` when opened through `e` or
-`lazy file` — there's no way to hook every possible editor invocation
-automatically, so a file opened by some other means (straight `nvim path`,
-an IDE, etc.) won't be tracked unless it goes through `lazy`.
+Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
 
 ## Do's and Don'ts
 
-- **Don't** source `lazy` in root's `.bashrc`/`.zshrc`, or run it as root via
-  `sudo -s` without care. `cd()`/`e()` are shell functions, not real
-  binaries — they only exist inside the shell that sourced them, so running
-  it as root just means root now has fuzzy-cd too, tracking root's own
-  `~/.lazydir`/`~/.lazyfile`, with root's usual footguns (wrong ownership on
-  datafiles, `_LAZY_OWNER` easy to get wrong, etc.). There's no real upside
-  to it living in root's shell.
-- **Don't** run `sudo e foo`. `sudo` execs a literal binary named `e` from
-  `$PATH` — it has no idea `e` is a function in your normal shell, so it
-  will just fail with `sudo: e: command not found`.
-- **Do** use `sudoedit /path/to/file` (or `sudo -e /path/to/file`, same
-  thing) when you need to edit a file you don't own. It edits a temp copy
-  under your own user and only writes back with elevated privileges,
-  which is both safer and simpler than trying to get `lazy`/`e` to work
-  under `sudo`.
-- **Do** keep `lazy` scoped to your normal user shell. If you genuinely need
-  frecency-based matching while root (rare), it's cleaner to `sudo -E -s`
-  (preserve your environment) and point `_LAZY_DIR_DATA`/`_LAZY_FILE_DATA`
-  at your own datafiles explicitly, rather than sourcing it from root's own
-  dotfiles.
+- **Don't** source `lazy` in root's `.bashrc`/`.zshrc`, or run it as root via `sudo -s` without care. `cd()` and your editor wrapper are shell functions, not real binaries. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
+- **Don't** run `sudo $EDITOR foo` expecting the fuzzy-search to work. `sudo` execs a literal binary from `$PATH` — it has no idea your editor is a function in your normal shell, so it will bypass the script entirely.
+- **Do** use `sudoedit /path/to/file` (or `sudo -e /path/to/file`) when you need to edit a file you don't own. It edits a temp copy under your own user, which is cleaner than trying to force the jump-list to work under `sudo`.
+- **Do** keep `lazy` scoped to your normal user shell. 
 
 ## License
 
