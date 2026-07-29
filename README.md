@@ -100,6 +100,29 @@ Files are only added to `~/.lazyfile` when opened through `e` or
 automatically, so a file opened by some other means (straight `nvim path`,
 an IDE, etc.) won't be tracked unless it goes through `lazy`.
 
+## Do's and Don'ts
+
+- **Don't** source `lazy` in root's `.bashrc`/`.zshrc`, or run it as root via
+  `sudo -s` without care. `cd()`/`e()` are shell functions, not real
+  binaries — they only exist inside the shell that sourced them, so running
+  it as root just means root now has fuzzy-cd too, tracking root's own
+  `~/.lazydir`/`~/.lazyfile`, with root's usual footguns (wrong ownership on
+  datafiles, `_LAZY_OWNER` easy to get wrong, etc.). There's no real upside
+  to it living in root's shell.
+- **Don't** run `sudo e foo`. `sudo` execs a literal binary named `e` from
+  `$PATH` — it has no idea `e` is a function in your normal shell, so it
+  will just fail with `sudo: e: command not found`.
+- **Do** use `sudoedit /path/to/file` (or `sudo -e /path/to/file`, same
+  thing) when you need to edit a file you don't own. It edits a temp copy
+  under your own user and only writes back with elevated privileges,
+  which is both safer and simpler than trying to get `lazy`/`e` to work
+  under `sudo`.
+- **Do** keep `lazy` scoped to your normal user shell. If you genuinely need
+  frecency-based matching while root (rare), it's cleaner to `sudo -E -s`
+  (preserve your environment) and point `_LAZY_DIR_DATA`/`_LAZY_FILE_DATA`
+  at your own datafiles explicitly, rather than sourcing it from root's own
+  dotfiles.
+
 ## License
 
 WTFPL, same as upstream. See [LICENSE](LICENSE).
