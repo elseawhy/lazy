@@ -6,17 +6,26 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
 - Ships smart wrappers out of the box — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
-- **Auto-Privilege Escalation:** If you attempt to open or jump to a file outside of your `$HOME` directory, the editor wrapper instantly recognizes the boundary and automatically executes `sudo -e` instead. Zero friction.
-- **Smart Environment Sync:** Automatically aligns `$SUDO_EDITOR` with your preferred editor so your elevated edits don't randomly launch `nano` or `vi`.
-- **Self-Cleaning:** Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
-- **Dynamically adapts to your editor:** Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
-- Tab completion is context-aware: an empty word suggests your history, a fuzzy fragment (no `/`) searches the frecency database, and a real path (contains `/`) falls straight through to normal filesystem completion.
+- **Auto-Privilege Escalation** — If you attempt to open or jump to a file outside of your `$HOME` directory, the editor wrapper instantly recognizes the boundary and automatically executes `sudo -e` instead. Zero friction.
+- **Smart Environment Sync** — Automatically aligns `$SUDO_EDITOR` with your preferred editor so your elevated edits don't randomly launch `nano` or `vi`.
+- **Self-Cleaning** — Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
+- **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
+- Tab completion is context-aware — an empty word suggests your history, a fuzzy fragment (no `/`) searches the frecency database, and a real path (contains `/`) falls straight through to normal filesystem completion.
 
 All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa deadwyler](https://github.com/rupa). 
 
+## Who this script is for :)
+
+This tool is built for developers, sysadmins, and terminal minimalists who...
+
+- **Want `zoxide` for files** — You love the frictionless, frecency-based jumping of tools like `z` or `zoxide` for directories, and you want that exact same magic for opening your most-used files.
+- **Crave workflow QoL** — You want your environment to be smart enough to find the file you need without forcing you to memorize or type out tedious absolute and relative paths.
+- **Are tired of `sudo $EDITOR`** — You hate opening a system configuration file, getting a "Permission denied" error on save, and having to back out just to type `sudo nvim`. 
+- **Prioritize strict security** — You want a robust, secure way to edit system root files. By automatically delegating to `sudo -e` (sudoedit) for anything outside your home directory, this script guarantees you never run your entire editor environment as root, strictly adhering to security best practices.
+
 ## Install
 
-Put this in your `.bashrc` or `.zshrc`:
+Put this in your `.bashrc` or `.zshrc`
 
     # 1. Define your editor! (The script uses this to dynamically name the wrapper function)
     # This works with nvim, emacs, micro, nano, etc.
@@ -25,7 +34,7 @@ Put this in your `.bashrc` or `.zshrc`:
     # 2. Source the script
     . /path/to/lazy
 
-*(Note: If you completely forget to set your editor variables, the script will gracefully default to `nvim`.)*
+*(Quick note — If you completely forget to set your editor variables, the script will gracefully default to `nvim`.)*
 
 Then just use your terminal normally — `cd` around, open a few files — for a day or two to build up the database. 
 
@@ -33,7 +42,7 @@ Then just use your terminal normally — `cd` around, open a few files — for a
 
 There are no clunky `lazy file foo` or `lazy dir foo` commands to memorize. Just use your normal commands, and the script handles the rest quietly in the background.
 
-Assuming you set `_LAZY_EDITOR="nvim"`, your workflow looks like this:
+Assuming you set `_LAZY_EDITOR="nvim"`, your workflow looks like this
 
     cd foo          # fuzzy-cd fallback when foo isn't a real directory
     nvim foo        # fuzzy-open fallback when foo isn't a real file in the DB
@@ -46,7 +55,7 @@ Assuming you set `_LAZY_EDITOR="nvim"`, your workflow looks like this:
 
 ### Tunables
 
-You can override these by exporting them before the `source` line:
+You can override these by exporting them before the `source` line
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -58,7 +67,7 @@ You can override these by exporting them before the `source` line:
 
 ### Tab completion
 
-Completion is context-aware based on what you've typed (using `nvim` as an example here, but it adapts to your `_LAZY_EDITOR`):
+Completion is context-aware based on what you've typed (using `nvim` as an example here, but it adapts to your `_LAZY_EDITOR`)
 
 | You type | What happens |
 | --- | --- |
@@ -69,7 +78,7 @@ Completion is context-aware based on what you've typed (using `nvim` as an examp
 | `cd /real/path<TAB>` | falls straight through to normal filesystem completion |
 | `nvim /real/path<TAB>` | falls straight through to normal filesystem completion |
 
-> **Note:** this fallback relies on bash's `-o default`/`-o bashdefault` completion options. Under zsh's `compctl`, there's no equivalent automatic fallback, so typing an explicit path currently only searches the frecency database even under zsh.
+> **Heads up** — this fallback relies on bash's `-o default`/`-o bashdefault` completion options. Under zsh's `compctl`, there's no equivalent automatic fallback, so typing an explicit path currently only searches the frecency database even under zsh.
 
 ## How it works
 
