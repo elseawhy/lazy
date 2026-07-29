@@ -2,10 +2,6 @@
 # Forked/extended: tracks files as well as directories, renamed z -> lazy.
 # Stripped down for minimal "drop-in" smart cd/editor usage.
 
-# Copyright (c) 2009 rupa deadwyler. Licensed under the WTFPL license, Version 2
-# Forked/extended: tracks files as well as directories, renamed z -> lazy.
-# Stripped down for minimal "drop-in" smart cd/editor usage.
-
 [ -d "${_LAZY_DIR_DATA:-$HOME/.lazydir}" ] && {
     echo "ERROR: lazy's directory datafile (${_LAZY_DIR_DATA:-$HOME/.lazydir}) is a directory."
     return 1 2>/dev/null || exit 1
