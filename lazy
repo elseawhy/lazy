@@ -1,6 +1,7 @@
 # Copyright (c) 2009 rupa deadwyler. Licensed under the WTFPL license, Version 2
 # Forked/extended: tracks files as well as directories, renamed z -> lazy.
-# No awk/gsub/sed, makes use of bash's math (No floats)
+# Stripped down for minimal "drop-in" smart cd/editor usage.
+# (Rewritten in pure bash - case/esac edition)
 
 [ -d "${_LAZY_DIR_DATA:-$HOME/.lazydir}" ] && {
     echo "ERROR: lazy's directory datafile (${_LAZY_DIR_DATA:-$HOME/.lazydir}) is a directory."
@@ -57,11 +58,16 @@ _lazy_read () {
 }
 
 _lazy_smart_open() {
-    local abs_target existed=0
-    abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
+    local existed=0
+    local abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
     [ -e "$abs_target" ] && existed=1
 
     local -a _lazy_editor_cmd=(${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-vi}}})
+
+    if [ -d "$abs_target" ]; then
+	echo "Hold up, '$abs_target' is a directory! Use cd instead."
+	return 1
+    fi
 
     case "$abs_target" in
         "$_LAZY_REAL_HOME"|"$_LAZY_REAL_HOME"/*) command "${_lazy_editor_cmd[@]}" "$@" ;;
@@ -249,10 +255,6 @@ cd() {
 
 eval "
 ${_LAZY_EDITOR_NAME}() {
-    if [ -d \"\$1\" ]; then
-	echo \"Hold up, '\$1' is a directory! Use cd instead.\"
-	return 1
-    fi
     case \$# in
         0) command \${_LAZY_EDITOR:-\${EDITOR:-\${VISUAL:-vi}}} ; return ;;
         *) case \"\$1\" in
@@ -268,8 +270,9 @@ ${_LAZY_EDITOR_NAME}() {
                    fi ;;
            esac
 	   if [ \"\$#\" -gt 1 ]; then
-			echo \"I saw you tried to open multiple files.\"
-            echo \"I only opened '\$1' so you don't lose track of your buffers!\"
-       fi ;;
+		echo \"I saw you tried to open multiple files.\"
+                echo \"I only opened '\$1' so you don't lose track of your buffers!\"
+           fi
+	   ;;
     esac
 }"
