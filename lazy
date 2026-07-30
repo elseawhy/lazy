@@ -1,7 +1,6 @@
 # Copyright (c) 2009 rupa deadwyler. Licensed under the WTFPL license, Version 2
 # Forked/extended: tracks files as well as directories, renamed z -> lazy.
-# Stripped down for minimal "drop-in" smart cd/editor usage.
-# (Rewritten in pure bash - case/esac edition)
+# No awk/gsub/sed, makes use of bash's math (No floats)
 
 [ -d "${_LAZY_DIR_DATA:-$HOME/.lazydir}" ] && {
     echo "ERROR: lazy's directory datafile (${_LAZY_DIR_DATA:-$HOME/.lazydir}) is a directory."
@@ -269,9 +268,8 @@ ${_LAZY_EDITOR_NAME}() {
                    fi ;;
            esac
 	   if [ \"\$#\" -gt 1 ]; then
-		echo \"I saw you tried to open multiple files.\"
-                echo \"I only opened '\$1' so you don't lose track of your buffers!\"
-           fi
-	   ;;
+			echo \"I saw you tried to open multiple files.\"
+            echo \"I only opened '\$1' so you don't lose track of your buffers!\"
+       fi ;;
     esac
 }"
