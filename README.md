@@ -1,6 +1,6 @@
 # lazy
 
-`lazy` is a heavily stripped-down, zero-bloat fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path.
+`lazy` is a heavily stripped-down, zero-bloat fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path. Built to match my workflow, currently only supports Bash.
 
 Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgrd/flyline).
 
@@ -90,7 +90,7 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 
 ## Don'ts
 
-- **Don't** source `lazy` in root's `.bashrc`/`.zshrc`. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
+- **Don't** source `lazy` in root's `.bashrc`. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
 - **Don't** manually run `sudo nvim foo`. Your shell will completely bypass this script's intelligence, skip the frecency database, and break the automation. Just let the wrapper handle the elevation for you natively!
 
 ## License
