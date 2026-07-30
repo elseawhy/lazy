@@ -9,7 +9,7 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
 - **Ships smart wrappers out of the box** — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
 - **Auto-Privilege Escalation** — If you attempt to open or jump to a file outside of your `$HOME` directory, the editor wrapper instantly recognizes the boundary and automatically executes `sudo -e` instead. Zero friction.
-- **Smart Environment Sync** — Automatically aligns `$SUDO_EDITOR` with your preferred editor so your elevated edits don't randomly launch `nano` or `vi`.
+- **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
 - **Self-Cleaning** — Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
 - **Tab completion is context-aware** — an empty word suggests your history, a fuzzy fragment (no `/`) searches the frecency database, and a real path (contains `/`) falls straight through to normal filesystem completion.
@@ -65,7 +65,7 @@ You can override these by exporting them before the `source` line
 | `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
-| `_LAZY_EDITOR` | `$EDITOR`, else `vi` | program used to open matched files |
+| `_LAZY_EDITOR` | `$EDITOR`/`$VISUAL`, else `nano` | program used to open matched files |
 
 ### Tab completion
 
