@@ -16,21 +16,60 @@ if [ -z "${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-}}}" ]; then
     export _LAZY_EDITOR="nano"
 fi
 
+# Fix: propagate to EDITOR/VISUAL too. sudo -e only ever looks at VISUAL/EDITOR
+# (it has never heard of _LAZY_EDITOR), so without this, a user who only set
+# _LAZY_EDITOR would get their chosen editor inside $HOME but silently fall
+# back to sudoers' own default editor outside $HOME.
+export EDITOR="${EDITOR:-$_LAZY_EDITOR}"
+export VISUAL="${VISUAL:-$_LAZY_EDITOR}"
+
 _LAZY_EDITOR_NAME="${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-vi}}}"
 _LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME%% *}"
+# Fix: also strip any directory component, so a full path in $EDITOR
+# (e.g. /usr/bin/vim) still produces a bare, callable wrapper name (vim)
+# instead of a function literally named "/usr/bin/vim".
+_LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME##*/}"
+
+# Fix: resolve $HOME's real path once at source time instead of forking
+# realpath on every single _lazy_smart_open call.
+_LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
+
+# Fix: hoisted out of _lazy() so these are defined once at source time
+# instead of being redefined on every call to _lazy (which happens on
+# every prompt, every cd, every editor invocation, and every tab-complete).
+_lazy_read () {
+    local f="$1" type="$2" line p
+    [ -f "$f" ] || return 0
+    # Fix #2: Added -r to prevent backslash corruption
+    while read -r line; do
+        p="${line%%\|*}"
+        if [ "$type" = "d" ]; then
+            [ -d "$p" ] && echo "$line"
+        else
+            [ -f "$p" ] && echo "$line"
+        fi
+    done < "$f"
+    return 0
+}
+
+_lazy_entries () {
+    case "$mode" in
+        file) _lazy_read "$filefile" f;;
+        dir)  _lazy_read "$dirfile" d;;
+    esac
+}
 
 # Helper function to safely evaluate paths and trigger sudo -e when leaving $HOME
 _lazy_smart_open() {
-    local real_home abs_target
-    real_home="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
+    local abs_target
     abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
 
     case "$abs_target" in
-        "$real_home"|"$real_home"/*) 
-            command ${_LAZY_EDITOR:-${EDITOR:-vi}} "$@" 
+        "$_LAZY_REAL_HOME"|"$_LAZY_REAL_HOME"/*)
+            command "${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-vi}}}" "$@"
             ;;
-        *) 
-            command sudo -e "$@" 
+        *)
+            command sudo -e "$@"
             ;;
     esac
 }
@@ -66,28 +105,6 @@ EOF
     [ -h "$filefile" ] && filefile=$(realpath "$filefile")
 
     local mode=""
-
-    _lazy_read () {
-        local f="$1" type="$2" line p
-        [ -f "$f" ] || return 0
-        # Fix #2: Added -r to prevent backslash corruption
-        while read -r line; do
-            p="${line%%\|*}"
-            if [ "$type" = "d" ]; then
-                [ -d "$p" ] && echo "$line"
-            else
-                [ -f "$p" ] && echo "$line"
-            fi
-        done < "$f"
-        return 0
-    }
-
-    _lazy_entries () {
-        case "$mode" in
-            file) _lazy_read "$filefile" f;;
-            dir)  _lazy_read "$dirfile" d;;
-        esac
-    }
 
     # 2. Add entry (Actively self-cleans dead paths via _lazy_read filter)
     if [ "$1" = "--add" ]; then
@@ -130,14 +147,15 @@ EOF
             }
         ' 2>/dev/null >| "$tempfile"
 
-        if [ $? -ne 0 -a -f "$target" ]; then
+        local add_rc=$?
+        if [ "$add_rc" -ne 0 ] && [ -f "$target" ]; then
             \env rm -f "$tempfile"
         else
             \env mv -f "$tempfile" "$target" || \env rm -f "$tempfile"
         fi
 
     # 3. Tab completion
-    elif [ "$1" = "--complete" -a \( -s "$dirfile" -o -s "$filefile" \) ]; then
+    elif [ "$1" = "--complete" ] && { [ -s "$dirfile" ] || [ -s "$filefile" ]; }; then
         local complline="$2" firstword
         firstword="${complline%% *}"
         case "$firstword" in
@@ -258,6 +276,14 @@ cd() {
 
 eval "
 ${_LAZY_EDITOR_NAME}() {
+    # Fix: opening the editor with no filename (e.g. bare 'nano') used to
+    # fall through to _lazy_smart_open with an empty \\\$1, which resolved
+    # to 'sudo -e' with no target and just errored out. Handle it directly.
+    if [ \$# -eq 0 ]; then
+        command \${_LAZY_EDITOR:-\${EDITOR:-\${VISUAL:-vi}}}
+        return
+    fi
+
     # Fix #6: Bypass fuzzy logic entirely if opening multiple files
     if [ \$# -gt 1 ]; then
         _lazy_smart_open \"\$@\"
