@@ -27,7 +27,7 @@ This tool is built for users who...
 
 ## Install
 
-Put this in your `.bashrc` or `.zshrc`
+Put this in your `.bashrc`
 
     # 1. Define your editor! (The script uses this to dynamically name the wrapper function)
     # This works with nvim, emacs, micro, nano, etc.
@@ -61,7 +61,6 @@ You can override these by exporting them before the `source` line
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `_LAZY_CMD` | `lazy` | command name the script is aliased to |
 | `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
@@ -79,8 +78,6 @@ Completion is context-aware based on what you've typed (using `nvim` as an examp
 | `nvim te<TAB>` | fuzzy-matches `te` against file history |
 | `cd /real/path<TAB>` | falls straight through to normal filesystem completion |
 | `nvim /real/path<TAB>` | falls straight through to normal filesystem completion |
-
-> **Heads up** — this fallback relies on bash's `-o default`/`-o bashdefault` completion options. Under zsh's `compctl`, there's no equivalent automatic fallback, so typing an explicit path currently only searches the frecency database even under zsh.
 
 ## How it works
 
