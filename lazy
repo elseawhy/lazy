@@ -2,28 +2,22 @@
 # Forked/extended: tracks files as well as directories, renamed z -> lazy.
 # No awk/sed/gsub, no floating point math, this makes use of bash's math
 
-[ -d "${_LAZY_DIR_DATA:-$HOME/.lazydir}" ] && {
-    echo "ERROR: lazy's directory datafile (${_LAZY_DIR_DATA:-$HOME/.lazydir}) is a directory."
-    return 1 2>/dev/null || exit 1
-}
-[ -d "${_LAZY_FILE_DATA:-$HOME/.lazyfile}" ] && {
-    echo "ERROR: lazy's file datafile (${_LAZY_FILE_DATA:-$HOME/.lazyfile}) is a directory."
-    return 1 2>/dev/null || exit 1
-}
-
-case "${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-}}}" in
-    "") export _LAZY_EDITOR="nano" ;;
-esac
-
-export EDITOR="${EDITOR:-$_LAZY_EDITOR}"
-export VISUAL="${VISUAL:-$_LAZY_EDITOR}"
-
-_LAZY_EDITOR_NAME="${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-vi}}}"
-_LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME%% *}"
-_LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME##*/}"
-_LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
 dirfile="${_LAZY_DIR_DATA:-$HOME/.lazydir}"
 filefile="${_LAZY_FILE_DATA:-$HOME/.lazyfile}"
+
+[ -h "$dirfile" ] && dirfile="$(realpath -m "$dirfile" 2>/dev/null || readlink "$dirfile")"
+[ -h "$filefile" ] && filefile="$(realpath -m "$filefile" 2>/dev/null || readlink "$filefile")"
+
+for f in "$dirfile" "$filefile"; do
+    [ -d "$f" ] && { echo "ERROR: lazy datafile ($f) is a directory."; return 1 2>/dev/null || exit 1; }
+done
+
+export _LAZY_EDITOR="${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-nano}}}"
+export EDITOR="${EDITOR:-$_LAZY_EDITOR}"
+export VISUAL="${VISUAL:-$_LAZY_EDITOR}"
+_LAZY_EDITOR_NAME="${_LAZY_EDITOR%% *}"
+_LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME##*/}"
+_LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
 
 lazy() {
         cat <<EOF
@@ -45,9 +39,8 @@ EOF
 
 _lazy_smart_open() {
     local existed=0 abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
+    local -a _lazy_editor_cmd=($_LAZY_EDITOR)
     [ -e "$abs_target" ] && existed=1
-
-    local -a _lazy_editor_cmd=(${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-vi}}})
 
     if [ -d "$abs_target" ]; then
 	echo "Hold up, '$abs_target' is a directory! Use cd instead."
@@ -65,9 +58,6 @@ _lazy_smart_open() {
 
 _lazy_add() {
     local target="$1" abs_path="$(realpath -m "$2" 2>/dev/null || echo "$2")"
-
-    [ -h "$target" ] && target=$(realpath -m "$target" 2>/dev/null || echo "$target")
-
     local tempfile=$(mktemp "$target.XXXXXX") score=${_LAZY_MAX_SCORE:-9000} now=$(date +%s) total_count=0 found=0 p r t
     local -a lines=()
 
@@ -122,7 +112,8 @@ _lazy_complete_func() {
     local target p r t imatch=0
 
     case "$1" in
-        cd) target="$dirfile" ;;
+        cd) (( COMP_CWORD > 1 )) && return 0
+	    target="$dirfile" ;;
         "$_LAZY_EDITOR_NAME") target="$filefile" ;;
         *) return 0 ;;
     esac
