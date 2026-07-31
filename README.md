@@ -90,6 +90,10 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 - **Don't** source `lazy` in root's `.bashrc`. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
 - **Don't** manually run `sudo nvim foo`. Your shell will completely bypass this script's intelligence, skip the frecency database, and break the automation. Just let the wrapper handle the elevation for you natively!
 
+## Have yet to implement:
+- Multifile editing support
+- Editor arguments support
+
 ## License
 
 WTFPL, same as upstream. See [LICENSE](LICENSE).
