@@ -55,7 +55,7 @@ Assuming you set `_LAZY_EDITOR="nvim"`, your workflow looks like this
 
 *(If your editor is `emacs` or `micro`, just swap `nvim` in the above examples.)*
 
-### Tunables
+## Tunables
 
 You can override these by exporting them before the `source` line
 
@@ -66,7 +66,7 @@ You can override these by exporting them before the `source` line
 | `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
 | `_LAZY_EDITOR` | `$EDITOR`/`$VISUAL`, else `nano` | program used to open matched files |
 
-### Tab completion
+## Tab completion
 
 Completion is context-aware based on what you've typed (using `nvim` as an example here, but it adapts to your `_LAZY_EDITOR`)
 
@@ -90,7 +90,7 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 - **Don't** source `lazy` in root's `.bashrc`. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
 - **Don't** manually run `sudo nvim foo`. Your shell will completely bypass this script's intelligence, skip the frecency database, and break the automation. Just let the wrapper handle the elevation for you natively!
 
-## Have yet to implement:
+## Have yet to implement
 - Multifile editing support
 - Editor arguments support
 
