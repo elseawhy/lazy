@@ -44,7 +44,7 @@ Then just use your terminal normally — `cd` around, open a few files — for a
 
 There are no clunky `lazy file foo` or `lazy dir foo` commands to memorize. Just use your normal commands, and the script handles the rest quietly in the background.
 
-Assuming you set `_LAZY_EDITOR="nvim"`, your workflow looks like this
+Assuming you set `EDITOR=nvim`, your workflow looks like this
 
     cd foo          	# fuzzy-cd fallback when foo isn't a real directory
     nvim foo        	# fuzzy-open fallback when foo isn't a real file in the DB
