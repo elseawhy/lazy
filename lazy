@@ -12,10 +12,9 @@ for f in "$dirfile" "$filefile"; do
     [ -d "$f" ] && { echo "ERROR: lazy datafile ($f) is a directory."; return 1 2>/dev/null || exit 1; }
 done
 
-export _LAZY_EDITOR="${_LAZY_EDITOR:-${EDITOR:-${VISUAL:-nano}}}"
-export EDITOR="${EDITOR:-$_LAZY_EDITOR}"
-export VISUAL="${VISUAL:-$_LAZY_EDITOR}"
-_LAZY_EDITOR_NAME="${_LAZY_EDITOR%% *}"
+export EDITOR="${EDITOR:-${VISUAL:-nano}}"
+export VISUAL="$EDITOR"
+_LAZY_EDITOR_NAME="${EDITOR%% *}"
 _LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME##*/}"
 _LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
 
@@ -32,14 +31,14 @@ TUNABLES (export these in .bashrc before sourcing lazy)
   _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)
   _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)
   _LAZY_MAX_SCORE         aging threshold before scores decay (default: 9000)
-  _LAZY_EDITOR            program used to open matched files (default: \$EDITOR, else vi)
+  EDITOR                  program used to open matched files (default: nano)
 EOF
         return
 }
 
 _lazy_smart_open() {
     local existed=0 abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
-    local -a _lazy_editor_cmd=($_LAZY_EDITOR)
+    local -a _lazy_editor_cmd=($EDITOR)
     [ -e "$abs_target" ] && existed=1
 
     if [ -d "$abs_target" ]; then
@@ -215,7 +214,7 @@ cd() {
 eval "
 ${_LAZY_EDITOR_NAME}() {
     case \$# in
-        0) command \${_LAZY_EDITOR:-\${EDITOR:-\${VISUAL:-vi}}} ; return ;;
+        0) command \${EDITOR} ; return ;;
         *) if [[ \"\$1\" == */* ]] || [ -f \"\$1\" ]; then
                local abs_path=\"\$(realpath -m \"\$1\" 2>/dev/null || echo \"\$1\")\"
                [ -f \"\$1\" ] && (_lazy_add \"\$filefile\" \"\$abs_path\" &)

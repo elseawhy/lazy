@@ -31,7 +31,7 @@ Put this in your `.bashrc`
 
     # 1. Define your editor! (The script uses this to dynamically name the wrapper function)
     # This works with nvim, emacs, micro, nano, etc.
-    export _LAZY_EDITOR="nvim"
+    export EDITOR=nvim
     
     # 2. Source the script
     . /path/to/lazy
@@ -46,12 +46,11 @@ There are no clunky `lazy file foo` or `lazy dir foo` commands to memorize. Just
 
 Assuming you set `_LAZY_EDITOR="nvim"`, your workflow looks like this
 
-    cd foo          # fuzzy-cd fallback when foo isn't a real directory
-    nvim foo        # fuzzy-open fallback when foo isn't a real file in the DB
-    nvim ./foo      # bypasses the database to explicitly create/open a file in $PWD
-    nvim file1 file2 # bypasses the database entirely to open multiple files normally
-    nvim fstab      # fuzzy-resolves in user-space, detects it's outside $HOME, and runs sudo -e /etc/fstab
-    nvim /etc/hosts # bypasses the database, detects it's outside $HOME, and runs sudo -e /etc/hosts
+    cd foo          	# fuzzy-cd fallback when foo isn't a real directory
+    nvim foo        	# fuzzy-open fallback when foo isn't a real file in the DB
+    nvim ./foo      	# bypasses the database to explicitly create/open a file in $PWD
+    nvim fstab      	# fuzzy-resolves in user-space, detects it's outside $HOME, and runs sudo -e /etc/fstab
+    nvim /etc/hosts 	# bypasses the database, detects it's outside $HOME, and runs sudo -e /etc/hosts
 
 *(If your editor is `emacs` or `micro`, just swap `nvim` in the above examples.)*
 
@@ -64,7 +63,7 @@ You can override these by exporting them before the `source` line
 | `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
-| `_LAZY_EDITOR` | `$EDITOR`/`$VISUAL`, else `nano` | program used to open matched files |
+| `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
 ## Tab completion
 
