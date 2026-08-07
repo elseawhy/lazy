@@ -8,6 +8,8 @@ filefile="${_LAZY_FILE_DATA:-$HOME/.lazyfile}"
 [ -h "$dirfile" ] && dirfile="$(realpath -m "$dirfile" 2>/dev/null || readlink "$dirfile")"
 [ -h "$filefile" ] && filefile="$(realpath -m "$filefile" 2>/dev/null || readlink "$filefile")"
 
+readonly dirfile filefile
+
 for f in "$dirfile" "$filefile"; do
     [ -d "$f" ] && { echo "ERROR: lazy datafile ($f) is a directory."; return 1 2>/dev/null || exit 1; }
 done
@@ -16,11 +18,11 @@ export EDITOR="${EDITOR:-${VISUAL:-nano}}"
 export VISUAL="$EDITOR"
 _LAZY_EDITOR_NAME="${EDITOR%% *}"
 _LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME##*/}"
-_LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
+readonly _LAZY_EDITOR_NAME
+readonly _LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
 
 lazy() {
-        cat <<EOF
-lazy - frecency-based smart cd and editor launcher
+        echo "lazy - frecency-based smart cd and editor launcher
 
 USAGE
   lazy help            show this help
@@ -31,20 +33,16 @@ TUNABLES (export these in .bashrc before sourcing lazy)
   _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)
   _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)
   _LAZY_MAX_SCORE         aging threshold before scores decay (default: 9000)
-  EDITOR                  program used to open matched files (default: nano)
-EOF
+  EDITOR                  program used to open matched files (default: nano)"
         return
 }
 
 _lazy_smart_open() {
     local existed=0 abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
     local -a _lazy_editor_cmd=($EDITOR)
+    
     [ -e "$abs_target" ] && existed=1
-
-    if [ -d "$abs_target" ]; then
-	echo "Hold up, '$abs_target' is a directory! Use cd instead."
-	return 1
-    fi
+    [ -d "$abs_target" ] && { echo "Hold up, '$abs_target' is a directory! Use cd instead."; return 1; }
 
     case "$abs_target" in
         "$_LAZY_REAL_HOME"|"$_LAZY_REAL_HOME"/*) command "${_lazy_editor_cmd[@]}" "$@" ;;
@@ -66,7 +64,7 @@ _lazy_add() {
             
 	    case "$target" in
 	        "$dirfile") [ -d "$p" ] || continue ;;
-		"$filefile") [ -f "$p" ] || continue ;;
+			"$filefile") [ -f "$p" ] || continue ;;
 	    esac
 
             case "$p" in
@@ -191,7 +189,7 @@ complete -o filenames -o bashdefault -o default -F _lazy_complete_func "$_LAZY_E
 cd() {
     local old_pwd="$(command pwd -P 2>/dev/null)"
     case $# in
-        0) builtin cd "$HOME" || return ;;
+        0) builtin cd || return ;;
         *) case "$1" in
                 -) builtin cd "$@" || return ;;
                 *) if [ -d "$1" ]; then
@@ -205,7 +203,7 @@ cd() {
 
     if [[ "$-" == *i* ]] && [[ "$old_pwd" != "$new_pwd" ]]; then
         case "$new_pwd" in
-            "$HOME"|/) ;;
+            "$_LAZY_REAL_HOME"|/) ;;
             *) (_lazy_add "$dirfile" "$new_pwd" 2>/dev/null &) ;;
         esac
     fi
