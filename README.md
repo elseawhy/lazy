@@ -43,17 +43,23 @@ Then just use your terminal normally — `cd` around, open a few files — for a
 
 ## Use
 
-There are no clunky `lazy file foo` or `lazy dir foo` commands to memorize. Just use your normal commands, and the script handles the rest quietly in the background.
+There are no clunky `lazy file foo` commands to memorize. Just use your normal commands, and the script handles the rest quietly in the background.
 
-Assuming you set `EDITOR=nvim`, your workflow looks like this
+Assuming you set `EDITOR=nvim` (swap `nvim` for `micro`, `emacs`, etc.), here is exactly how the script behaves in every scenario:
 
-    cd foo          	# fuzzy-cd fallback when foo isn't a real directory
-    nvim foo        	# fuzzy-open fallback when foo isn't a real file in the DB
-    nvim ./foo      	# bypasses the database to explicitly create/open a file in $PWD
-    nvim fstab      	# fuzzy-resolves in user-space, detects you lack write access, and runs sudo -e /etc/fstab
-    nvim /etc/hosts 	# bypasses the database, detects you lack write access, and runs sudo -e /etc/hosts
-
-*(If your editor is `emacs` or `micro`, just swap `nvim` in the above examples.)*
+| Command Typed | Target Exists? | Write Access? | What happens quietly in the background |
+| --- | --- | --- | --- |
+| `cd <TAB>` | N/A | N/A | Shows your entire directory history from `.lazydir`. |
+| `cd te<TAB>` | N/A | N/A | Fuzzy-matches `te` against your directory history and auto-completes. |
+| `cd foo` | No (in `$PWD`) | N/A | Fuzzy-searches `.lazydir` for `foo` and jumps to the best match. |
+| `nvim <TAB>` | N/A | N/A | Shows your entire file history from `.lazyfile`. |
+| `nvim te<TAB>` | N/A | N/A | Fuzzy-matches `te` against your file history and auto-completes. |
+| `nvim /etc/<TAB>`| N/A | N/A | Detects a slash (`/`) and falls through to normal bash filesystem completion. |
+| `nvim foo` | No (in `$PWD`) | N/A | Fuzzy-searches `.lazyfile` for `foo`, resolves the absolute path, and evaluates the rules below. |
+| `nvim ./foo.txt` | Yes/No | **Yes** | Bypasses fuzzy search. Opens the file normally as your user. |
+| `nvim ~/new/foo.txt` | No | **Yes** | Auto-creates `~/new/` (if missing), then opens normally. |
+| `nvim /etc/hosts` | Yes | **No** | Detects lack of permissions, and securely opens using `sudo -e`. |
+| `nvim /etc/new/foo.txt`| No | **No** | Auto-creates `/etc/new/` using `sudo`, then securely opens using `sudo nvim`. |
 
 ## Tunables
 
@@ -65,19 +71,6 @@ You can override these by exporting them before the `source` line
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
-
-## Tab completion
-
-Completion is context-aware based on what you've typed (using `nvim` as an example here, but it adapts to your `_LAZY_EDITOR`)
-
-| You type | What happens |
-| --- | --- |
-| `cd <TAB>` | lists your directory history from `.lazydir` |
-| `nvim <TAB>` | lists your file history from `.lazyfile` |
-| `cd te<TAB>` | fuzzy-matches `te` against directory history |
-| `nvim te<TAB>` | fuzzy-matches `te` against file history |
-| `cd /real/path<TAB>` | falls straight through to normal filesystem completion |
-| `nvim /real/path<TAB>` | falls straight through to normal filesystem completion |
 
 ## How it works
 
