@@ -60,6 +60,7 @@ Assuming you set `EDITOR=nvim` (swap `nvim` for `micro`, `emacs`, etc.), here is
 | `nvim ~/new/foo.txt` | No | **Yes** | Auto-creates `~/new/` (if missing), then opens normally. |
 | `nvim /etc/hosts` | Yes | **No** | Detects lack of permissions, and securely opens using `sudo -e`. |
 | `nvim /etc/new/foo.txt`| No | **No** | Auto-creates `/etc/new/` using `sudo`, then securely opens using `sudo nvim`. |
+| `nvim fstab ~/.bashrc` | Mixed | Mixed | Sequentially processes each file. Evaluates permissions individually to safely elevate (`sudo -e /etc/fstab`) without breaking local files (`nvim ~/.bashrc`). |
 
 ## Tunables
 
