@@ -236,17 +236,14 @@ eval "
 ${_LAZY_EDITOR_NAME}() {
     case \$# in
         0) command \${EDITOR} ; return ;;
-        *) if [[ \"\$1\" == */* ]] || [ -f \"\$1\" ]; then
-               local abs_path=\"\$(realpath -m \"\$1\" 2>/dev/null || echo \"\$1\")\"
-               [ -f \"\$1\" ] && (_lazy_add \"\$filefile\" \"\$abs_path\" &)
-               _lazy_smart_open \"\$1\"
-           else
-               _lazy_query_file \"\$1\" || _lazy_smart_open \"\$1\"
-           fi
-
-           if [ \"\$#\" -gt 1 ]; then
-               echo \"I saw you tried to open multiple files.\"
-               echo \"I only opened '\$1' so you don't lose track of your buffers!\"
-           fi ;;
+        *) for target_file in \"\$@\"; do
+               if [[ \"\$target_file\" == */* ]] || [ -f \"\$target_file\" ]; then
+                   local abs_path=\"\$(realpath -m \"\$target_file\" 2>/dev/null || echo \"\$target_file\")\"
+                   [ -f \"\$target_file\" ] && (_lazy_add \"\$filefile\" \"\$abs_path\" &)
+                   _lazy_smart_open \"\$target_file\"
+               else
+                   _lazy_query_file \"\$target_file\" || _lazy_smart_open \"\$target_file\"
+               fi
+           done ;;
     esac
 }"

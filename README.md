@@ -32,8 +32,7 @@ Put this in your `.bashrc`
 
     # 1. Define your editor! (The script uses this to dynamically name the wrapper function)
     # This works with nvim, emacs, micro, nano, etc.
-    # Don't do export EDITOR=, the script exports for you :)
-    EDITOR=nvim
+    export EDITOR=nvim
     
     # 2. Source the script
     . /path/to/lazy
@@ -85,7 +84,6 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 - **Don't** manually run `sudo nvim foo`. Your shell will completely bypass this script's intelligence, skip the frecency database, and break the automation. Just let the wrapper handle the elevation for you natively!
 
 ## Have yet to implement
-- Multifile editing support
 - Editor arguments support
 
 ## License
