@@ -8,7 +8,8 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
 - **Ships smart wrappers out of the box** — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
-- **Auto-Privilege Escalation** — If you attempt to open or jump to a file outside of your `$HOME` directory, the editor wrapper instantly recognizes the boundary and automatically executes `sudo -e` instead. Zero friction.
+- **Auto-Privilege Escalation** — The editor wrapper intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes `sudo` or `sudo -e` instead. Zero friction.
+- **Auto-Directory Creation** — If you try to open a new file in a directory that doesn't exist, the script will automatically create the full directory tree for you (escalating to sudo if necessary) before dropping you into your editor.
 - **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
 - **Self-Cleaning** — Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
@@ -23,7 +24,7 @@ This tool is built for users who...
 - **Want `zoxide` for files** — You love the frictionless, frecency-based jumping of tools like `z` or `zoxide` for directories, and you want that exact same magic for opening your most-used files.
 - **Crave workflow QoL** — You want your environment to be smart enough to find the file you need without forcing you to memorize or type out tedious absolute and relative paths.
 - **Are tired of `sudo $EDITOR`** — You hate opening a system configuration file, getting a "Permission denied" error on save, and having to back out just to type `sudo !!`. 
-- **Prioritize strict security** — You want a robust, secure way to edit system root files. This script automatically invoke `sudo -e` (sudoedit) for anything outside your home directory, you never have to type `sudo`.
+- **Prioritize strict security** — You want a robust, secure way to edit system root files. This script automatically invokes `sudo -e` or `sudo` for anything you lack write access to, so you never have to manually type `sudo`.
 
 ## Install
 
@@ -49,8 +50,8 @@ Assuming you set `EDITOR=nvim`, your workflow looks like this
     cd foo          	# fuzzy-cd fallback when foo isn't a real directory
     nvim foo        	# fuzzy-open fallback when foo isn't a real file in the DB
     nvim ./foo      	# bypasses the database to explicitly create/open a file in $PWD
-    nvim fstab      	# fuzzy-resolves in user-space, detects it's outside $HOME, and runs sudo -e /etc/fstab
-    nvim /etc/hosts 	# bypasses the database, detects it's outside $HOME, and runs sudo -e /etc/hosts
+    nvim fstab      	# fuzzy-resolves in user-space, detects you lack write access, and runs sudo -e /etc/fstab
+    nvim /etc/hosts 	# bypasses the database, detects you lack write access, and runs sudo -e /etc/hosts
 
 *(If your editor is `emacs` or `micro`, just swap `nvim` in the above examples.)*
 

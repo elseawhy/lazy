@@ -38,19 +38,42 @@ TUNABLES (export these in .bashrc before sourcing lazy)
 }
 
 _lazy_smart_open() {
-    local existed=0 abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
+    local existed=0 can_write=0 abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
     local -a _lazy_editor_cmd=($EDITOR)
     
     [ -e "$abs_target" ] && existed=1
     [ -d "$abs_target" ] && { echo "Hold up, '$abs_target' is a directory! Use cd instead."; return 1; }
 
-    case "$abs_target" in
-        "$_LAZY_REAL_HOME"|"$_LAZY_REAL_HOME"/*) command "${_lazy_editor_cmd[@]}" "$@" ;;
-        *) case "$existed" in
-                1) command sudo -e "$@" ;;
-                *) command sudo "${_lazy_editor_cmd[@]}" "$@" ;;
-           esac ;;
-    esac
+    if [ "$existed" -eq 1 ]; then
+        [ -w "$abs_target" ] && can_write=1
+    else
+        local parent_dir="$(dirname "$abs_target")"
+        local check_dir="$parent_dir"
+        
+        # Climb up the tree until we find a directory that exists
+        while [ ! -e "$check_dir" ] && [ "$check_dir" != "/" ]; do
+            check_dir="$(dirname "$check_dir")"
+        done
+        [ -w "$check_dir" ] && can_write=1
+
+        # Auto-create the directory if it doesn't exist
+        if [ ! -d "$parent_dir" ]; then
+            if [ "$can_write" -eq 1 ]; then
+                mkdir -p "$parent_dir"
+            else
+                command sudo mkdir -p "$parent_dir"
+            fi
+        fi
+    fi
+
+    if [ "$can_write" -eq 1 ]; then
+        command "${_lazy_editor_cmd[@]}" "$@"
+    else
+        case "$existed" in
+            1) command sudo -e "$@" ;;
+            *) command sudo "${_lazy_editor_cmd[@]}" "$@" ;;
+        esac
+    fi
 }
 
 _lazy_add() {
