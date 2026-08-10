@@ -32,7 +32,8 @@ Put this in your `.bashrc`
 
     # 1. Define your editor! (The script uses this to dynamically name the wrapper function)
     # This works with nvim, emacs, micro, nano, etc.
-    export EDITOR=nvim
+    # Don't do export EDITOR=, the script exports for you :)
+    EDITOR=nvim
     
     # 2. Source the script
     . /path/to/lazy
