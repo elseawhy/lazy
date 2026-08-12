@@ -13,7 +13,8 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
 - **Self-Cleaning** — Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
-- **Tab completion is context-aware** — an empty word suggests your history, a fuzzy fragment (no `/`) searches the frecency database, and a real path (contains `/`) falls straight through to normal filesystem completion.
+- **Tab completion is context-aware** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top, automatically resolves symlinks to prevent duplicates, and falls straight through to standard completion if a real path (contains `/`) is typed.
+- **Configurable Blacklists** — Exclude specific paths from ever polluting your history using colon-separated Bash globs. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
 
 All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa deadwyler](https://github.com/rupa). 
 
@@ -71,6 +72,8 @@ You can override these by exporting them before the `source` line
 | `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
+| `_LAZY_DIR_BLACKLIST` | `!($HOME/*)` | colon-separated glob patterns to ignore for cd |
+| `_LAZY_FILE_BLACKLIST`| `!($HOME/*)` | colon-separated glob patterns to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
 ## How it works
