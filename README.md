@@ -31,9 +31,9 @@ This tool is built for users who...
 
 Put this in your `.bashrc`
 
-    # 1. Define your editor! (The script uses this to dynamically name the wrapper function)
-    # This works with nvim, emacs, micro, nano, etc.
-    export EDITOR=nvim
+    # 1. Define your editor: nvim, emacs, micro, nano, etc.
+    # Don't export! The script does it for you.
+    EDITOR=nvim
     
     # 2. Source the script
     . /path/to/lazy
