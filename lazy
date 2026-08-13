@@ -70,17 +70,14 @@ _lazy_is_blacklisted() {
 }
 
 _lazy_add() {
-    local abs_path="$2" tempfile="$1.$RANDOM" total_count=0 found=0 path rank time
+    local abs_path="$2" tempfile="$1.$RANDOM" total_count=0 found=0 path rank time flag="-f"
+    [[ "$1" == "$dirfile" ]] && flag="-d"
     local -a lines=()
 
     if [ -f "$1" ]; then
         while IFS="|" read -r path rank time; do
             [ -z "$path" ] && continue
-            
-            case "$1" in
-                "$dirfile") [ -d "$path" ] || continue ;;
-                "$filefile") [ -f "$path" ] || continue ;;
-            esac
+            [ $flag "$path" ] || continue
 
             [[ "$path" == "$abs_path" ]] && (( rank++, found=1 )) && time=$(command date +%s)
 
@@ -93,14 +90,10 @@ _lazy_add() {
     (( total_count++ ))
 
     if [[ $total_count -gt ${_LAZY_MAX_SCORE:-9000} ]]; then
-        for line in "${lines[@]}"; do
-            IFS="|" read -r path rank time <<< "$line"
-            if [[ "$path" == "$abs_path" ]]; then
-                 echo "$path|$rank|$time" >> "$tempfile"
-            else
-                [[ $(( rank = (rank * 99) / 100 )) -gt 0 ]] && echo "$path|$rank|$time" >> "$tempfile"
-            fi
-        done
+        printf "%s\n" "${lines[@]}" | while IFS="|" read -r path rank time; do
+            [[ "$path" != "$abs_path" ]] && (( rank = (rank * 99) / 100 ))
+            [[ $rank -gt 0 ]] && echo "$path|$rank|$time"
+        done > "$tempfile"
     else
         printf "%s\n" "${lines[@]}" > "$tempfile"
     fi
@@ -113,9 +106,8 @@ _lazy_add() {
 }
 
 _lazy_complete_func() {
-    [[ "$1" == "cd" ]] && (( COMP_CWORD > 1 )) && return 0
     local target="$filefile"
-    [[ "$1" == "cd" ]] && target="$dirfile"
+    [[ "$1" == "cd" ]] && { (( COMP_CWORD > 1 )) && return 0; target="$dirfile"; }
 
     COMPREPLY=()
     local path rank time added_abs_paths=$'\n'
@@ -135,10 +127,10 @@ _lazy_complete_func() {
         done < "$target"
     fi
 
-    local local_path
+    local local_path abs_local_path
     while IFS= read -r local_path; do
         [ -z "$local_path" ] && continue
-        local abs_local_path="$local_path"
+        abs_local_path="$local_path"
         [[ "$local_path" != /* ]] && abs_local_path="$PWD/$local_path"
         
         if [[ "$added_abs_paths" != *$'\n'"$abs_local_path"$'\n'* ]]; then
@@ -160,12 +152,14 @@ _lazy_search() {
     while IFS="|" read -r path rank time; do
         [ -z "$path" ] && continue
 
-        if [[ "$path" == *"$q"* ]]; then
+        if [[ "${path,,}" == *"$q_lower"* ]]; then
             local current_rank=$(( (375000000 * rank) / (now - time + 12500) ))
-            (( current_rank > hi_rank )) && hi_rank=$current_rank && best_match="$path"
-        elif [[ "${path,,}" == *"$q_lower"* ]]; then
-            local current_rank=$(( (375000000 * rank) / (now - time + 12500) ))
-            (( current_rank > ihi_rank )) && ihi_rank=$current_rank && ibest_match="$path"
+            
+            if [[ "$q" == "$q_lower" ]] || [[ "$path" == *"$q"* ]]; then
+                (( current_rank > hi_rank )) && hi_rank=$current_rank && best_match="$path"
+            else
+                (( current_rank > ihi_rank )) && ihi_rank=$current_rank && ibest_match="$path"
+            fi
         fi
     done < "$1"
 
@@ -182,18 +176,14 @@ complete -o nosort -o filenames -o bashdefault -o default -F _lazy_complete_func
 
 cd() {
     local old_pwd="$(command pwd -P 2>/dev/null)"
-    case $# in
-        0) builtin cd || return ;;
-        *) case "$1" in
-                -) builtin cd "$@" || return ;;
-                *) if [ -d "$1" ]; then
-                        builtin cd "$@" || return
-                   else
-                        local target_path=$(_lazy_search "$dirfile" "$@")
-                        [ -d "$target_path" ] && builtin cd "$target_path" || builtin cd "$@" || return
-                   fi ;;
-           esac ;;
-    esac
+    if [ $# -eq 0 ]; then
+        builtin cd || return
+    elif [[ "$1" == "-" ]] || [ -d "$1" ]; then
+        builtin cd "$@" || return
+    else
+        local target_path=$(_lazy_search "$dirfile" "$@")
+        [ -d "$target_path" ] && builtin cd "$target_path" || builtin cd "$@" || return
+    fi
     local new_pwd="$(command pwd -P 2>/dev/null)"
 
     if [[ "$-" == *i* ]] && [[ "$old_pwd" != "$new_pwd" ]] && ! _lazy_is_blacklisted "$_LAZY_DIR_BLACKLIST" "$new_pwd"; then
@@ -205,21 +195,19 @@ eval "
 ${_LAZY_EDITOR_NAME}() {
     case \$# in
         0) command \${EDITOR} ; return ;;
-        *) for target_file in \"\$@\"; do
-               local path_to_open=\"\$target_file\"
-               
-               if [[ \"\$target_file\" != */* ]] && [ ! -f \"\$target_file\" ]; then
-                   local found_path=\$(_lazy_search \"\$filefile\" \"\$target_file\")
-                   if [ -f \"\$found_path\" ]; then
-                       path_to_open=\"\$found_path\"
-                   fi
+        *) for target in \"\$@\"; do
+               local absolute_path=\"\"
+               if [[ \"\$target\" != */* ]] && [ ! -f \"\$target\" ]; then
+                   absolute_path=\$(_lazy_search \"\$filefile\" \"\$target\")
+                   [ -f \"\$absolute_path\" ] && target=\"\$absolute_path\"
                fi
                
-               local abs_path=\"\$(realpath -m \"\$path_to_open\" 2>/dev/null || echo \"\$path_to_open\")\"
-               if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$abs_path\"; then
-                   [ -f \"\$abs_path\" ] && (_lazy_add \"\$filefile\" \"\$abs_path\" &)
+               [[ \"\$target\" != \"\$absolute_path\" ]] && absolute_path=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
+               
+               if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$absolute_path\"; then
+                   [ -f \"\$absolute_path\" ] && (_lazy_add \"\$filefile\" \"\$absolute_path\" &)
                fi
-               _lazy_smart_open \"\$path_to_open\"
+               _lazy_smart_open \"\$target\"
            done ;;
     esac
 }"
