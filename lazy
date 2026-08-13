@@ -70,7 +70,7 @@ _lazy_is_blacklisted() {
 }
 
 _lazy_add() {
-    local abs_path="$2" tempfile="$1.$RANDOM" total_count=0 found=0 path rank time flag="-f"
+    local tempfile="$1.$RANDOM" total_count=0 found=0 path rank time flag="-f"
     [[ "$1" == "$dirfile" ]] && flag="-d"
     local -a lines=()
 
@@ -79,19 +79,19 @@ _lazy_add() {
             [ -z "$path" ] && continue
             [ $flag "$path" ] || continue
 
-            [[ "$path" == "$abs_path" ]] && (( rank++, found=1 )) && time=$(command date +%s)
+            [[ "$path" == "$2" ]] && (( rank++, found=1 )) && time=$(command date +%s)
 
             lines+=("$path|$rank|$time")
             (( total_count += rank ))
         done < "$1"
     fi
 
-    [[ $found -eq 0 ]] && lines+=("$abs_path|1|$(command date +%s)")
+    [[ $found -eq 0 ]] && lines+=("$2|1|$(command date +%s)")
     (( total_count++ ))
 
     if [[ $total_count -gt ${_LAZY_MAX_SCORE:-9000} ]]; then
         printf "%s\n" "${lines[@]}" | while IFS="|" read -r path rank time; do
-            [[ "$path" != "$abs_path" ]] && (( rank = (rank * 99) / 100 ))
+            [[ "$path" != "$2" ]] && (( rank = (rank * 99) / 100 ))
             [[ $rank -gt 0 ]] && echo "$path|$rank|$time"
         done > "$tempfile"
     else
@@ -181,8 +181,7 @@ cd() {
     elif [[ "$1" == "-" ]] || [ -d "$1" ]; then
         builtin cd "$@" || return
     else
-        local target_path=$(_lazy_search "$dirfile" "$@")
-        [ -d "$target_path" ] && builtin cd "$target_path" || builtin cd "$@" || return
+        builtin cd "$(_lazy_search "$dirfile" "$@" || echo "$@")" || return
     fi
     local new_pwd="$(command pwd -P 2>/dev/null)"
 
@@ -195,16 +194,14 @@ eval "
 ${_LAZY_EDITOR_NAME}() {
     [ \$# -eq 0 ] && { command \${EDITOR} ; return ; }
     for target in \"\$@\"; do
-		local absolute_path=\"\"
 		if [[ \"\$target\" != */* ]] && [ ! -f \"\$target\" ]; then
-			absolute_path=\$(_lazy_search \"\$filefile\" \"\$target\")
-			[ -f \"\$absolute_path\" ] && target=\"\$absolute_path\"
+			target=\"\$(_lazy_search \"\$filefile\" \"\$target\" || echo \"\$target\")\"
 		fi
                
-		[[ \"\$target\" != \"\$absolute_path\" ]] && absolute_path=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
+		[[ \"\$target\" != /* ]] && target=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
                
-		if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$absolute_path\"; then
-			[ -f \"\$absolute_path\" ] && (_lazy_add \"\$filefile\" \"\$absolute_path\" &)
+		if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$target\"; then
+			[ -f \"\$target\" ] && (_lazy_add \"\$filefile\" \"\$target\" &)
 		fi
 		_lazy_smart_open \"\$target\"
     done
