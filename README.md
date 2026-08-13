@@ -53,6 +53,7 @@ Assuming you set `EDITOR=nvim` (swap `nvim` for `micro`, `emacs`, etc.), here is
 | `cd <TAB>` | N/A | N/A | Shows your entire directory history from `.lazydir`. |
 | `cd te<TAB>` | N/A | N/A | Fuzzy-matches `te` against your directory history and auto-completes. |
 | `cd foo` | No (in `$PWD`) | N/A | Fuzzy-searches `.lazydir` for `foo` and jumps to the best match. |
+| `cd foo bar` | Yes/No | N/A | Automatically joins spaces! Safely enters local `foo bar` if it exists, or fuzzy-searches `.lazydir` for `foo*bar` without needing quotes or backslashes. |
 | `nvim <TAB>` | N/A | N/A | Shows your entire file history from `.lazyfile`. |
 | `nvim te<TAB>` | N/A | N/A | Fuzzy-matches `te` against your file history and auto-completes. |
 | `nvim /etc/<TAB>`| N/A | N/A | Detects a slash (`/`) and falls through to normal bash filesystem completion. |
