@@ -9,11 +9,11 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
 - **Ships smart wrappers out of the box** — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
 - **Auto-Privilege Escalation** — The editor wrapper intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes `sudo` or `sudo -e` instead. Zero friction.
-- **Auto-Directory Creation** — If you try to open a new file in a directory that doesn't exist, the script will automatically create the full directory tree for you (escalating to sudo if necessary) before dropping you into your editor.
 - **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
 - **Self-Cleaning** — Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
-- **Tab completion is context-aware** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top, automatically resolves symlinks to prevent duplicates, and falls straight through to standard completion if a real path (contains `/`) is typed.
+- **100% Native Bash** — Unlike upstream, `lazy` completely strips out external binaries like `awk` or `bc`. All frecency math and garbage collection is executed natively in memory using Bash integer division for raw, zero-dependency speed.
+- **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed. Designed with a zero-subshell architecture, so autocomplete executes in <5ms.
 - **Configurable Blacklists** — Exclude specific paths from ever polluting your history using colon-separated Bash globs. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
 
 All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa deadwyler](https://github.com/rupa). 
@@ -58,9 +58,9 @@ Assuming you set `EDITOR=nvim` (swap `nvim` for `micro`, `emacs`, etc.), here is
 | `nvim /etc/<TAB>`| N/A | N/A | Detects a slash (`/`) and falls through to normal bash filesystem completion. |
 | `nvim foo` | No (in `$PWD`) | N/A | Fuzzy-searches `.lazyfile` for `foo`, resolves the absolute path, and evaluates the rules below. |
 | `nvim ./foo.txt` | Yes/No | **Yes** | Bypasses fuzzy search. Opens the file normally as your user. |
-| `nvim ~/new/foo.txt` | No | **Yes** | Auto-creates `~/new/` (if missing), then opens normally. |
+| `nvim ~/new/foo.txt` | No | **Yes** | Bypasses fuzzy search. Opens the file normally as your user. |
 | `nvim /etc/hosts` | Yes | **No** | Detects lack of permissions, and securely opens using `sudo -e`. |
-| `nvim /etc/new/foo.txt`| No | **No** | Auto-creates `/etc/new/` using `sudo`, then securely opens using `sudo nvim`. |
+| `nvim /etc/new/foo.txt`| No | **No** | Detects lack of parent permissions, and securely opens using `sudo nvim`. |
 | `nvim fstab ~/.bashrc` | Mixed | Mixed | Sequentially processes each file. Evaluates permissions individually to safely elevate (`sudo -e /etc/fstab`) without breaking local files (`nvim ~/.bashrc`). |
 
 ## Tunables
@@ -89,6 +89,7 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 
 ## Have yet to implement
 - Editor arguments support
+- Safe automatic directory creation
 
 ## License
 

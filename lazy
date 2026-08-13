@@ -4,24 +4,18 @@
 
 shopt -s extglob
 
-dirfile="${_LAZY_DIR_DATA:-$HOME/.lazydir}"
-filefile="${_LAZY_FILE_DATA:-$HOME/.lazyfile}"
+readonly _LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
+readonly dirfile="$(realpath -m "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}" 2>/dev/null || echo "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}")"
+readonly filefile="$(realpath -m "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}" 2>/dev/null || echo "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}")"
 
-[ -h "$dirfile" ] && dirfile="$(realpath -m "$dirfile" 2>/dev/null || readlink "$dirfile")"
-[ -h "$filefile" ] && filefile="$(realpath -m "$filefile" 2>/dev/null || readlink "$filefile")"
-
-readonly dirfile filefile
-
-for f in "$dirfile" "$filefile"; do
-    [ -d "$f" ] && { echo "ERROR: lazy datafile ($f) is a directory."; return 1 2>/dev/null || exit 1; }
-done
+[ -d "$dirfile" ] && { echo "ERROR: lazy's dir datafile ($dirfile) is a directory."; return 1; }
+[ -d "$filefile" ] && { echo "ERROR: lazy's file datafile ($filefile) is a directory."; return 1; }
 
 export EDITOR="${EDITOR:-${VISUAL:-nano}}"
 export VISUAL="$EDITOR"
 _LAZY_EDITOR_NAME="${EDITOR%% *}"
 _LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME##*/}"
 readonly _LAZY_EDITOR_NAME
-readonly _LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
 
 _LAZY_DIR_BLACKLIST="${_LAZY_DIR_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 _LAZY_FILE_BLACKLIST="${_LAZY_FILE_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
@@ -45,41 +39,23 @@ TUNABLES (export these in .bashrc before sourcing lazy)
 }
 
 _lazy_smart_open() {
-    local existed=0 can_write=0 abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
+    local abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
     local -a _lazy_editor_cmd=($EDITOR)
     
-    [ -e "$abs_target" ] && existed=1
     [ -d "$abs_target" ] && { echo "Hold up, '$abs_target' is a directory! Use cd instead."; return 1; }
 
-    if [ "$existed" -eq 1 ]; then
-        [ -w "$abs_target" ] && can_write=1
-    else
-        local parent_dir="$(dirname "$abs_target")"
-        local check_dir="$parent_dir"
-        
-        # Climb up the tree until we find a directory that exists
-        while [ ! -e "$check_dir" ] && [ "$check_dir" != "/" ]; do
-            check_dir="$(dirname "$check_dir")"
-        done
-        [ -w "$check_dir" ] && can_write=1
-
-        # Auto-create the directory if it doesn't exist
-        if [ ! -d "$parent_dir" ]; then
-            if [ "$can_write" -eq 1 ]; then
-                mkdir -p "$parent_dir"
-            else
-                command sudo mkdir -p "$parent_dir"
-            fi
+    if [ -e "$abs_target" ]; then
+        if [ -w "$abs_target" ]; then
+            command "${_lazy_editor_cmd[@]}" "$@"
+        else
+            command sudo -e "$@"
         fi
-    fi
-
-    if [ "$can_write" -eq 1 ]; then
-        command "${_lazy_editor_cmd[@]}" "$@"
     else
-        case "$existed" in
-            1) command sudo -e "$@" ;;
-            *) command sudo "${_lazy_editor_cmd[@]}" "$@" ;;
-        esac
+        if [ -w "$(dirname "$abs_target")" ]; then
+            command "${_lazy_editor_cmd[@]}" "$@"
+        else
+            command sudo "${_lazy_editor_cmd[@]}" "$@"
+        fi
     fi
 }
 
@@ -94,7 +70,7 @@ _lazy_is_blacklisted() {
 }
 
 _lazy_add() {
-    local abs_path="$(realpath -m "$2" 2>/dev/null || echo "$2")" tempfile=$(mktemp "$1.XXXXXX") score=${_LAZY_MAX_SCORE:-9000} now=$(date +%s) total_count=0 found=0 path rank time
+    local abs_path="$2" tempfile="$1.$RANDOM" total_count=0 found=0 path rank time
     local -a lines=()
 
     if [ -f "$1" ]; then
@@ -106,31 +82,23 @@ _lazy_add() {
                 "$filefile") [ -f "$path" ] || continue ;;
             esac
 
-            case "$path" in
-                "$abs_path")
-                    rank=$((rank + 1))
-                    time=$now
-                    found=1 ;;
-            esac
-            
+            [[ "$path" == "$abs_path" ]] && (( rank++, found=1 )) && time=$(command date +%s)
+
             lines+=("$path|$rank|$time")
-            total_count=$((total_count + rank))
+            (( total_count += rank ))
         done < "$1"
     fi
 
-    if [ "$found" -eq 0 ]; then
-        lines+=("$abs_path|1|$now")
-        total_count=$((total_count + 1))
-    fi
+    [[ $found -eq 0 ]] && lines+=("$abs_path|1|$(command date +%s)")
+    (( total_count++ ))
 
-    if [[ $total_count -gt $score ]]; then
+    if [[ $total_count -gt ${_LAZY_MAX_SCORE:-9000} ]]; then
         for line in "${lines[@]}"; do
             IFS="|" read -r path rank time <<< "$line"
             if [[ "$path" == "$abs_path" ]]; then
                  echo "$path|$rank|$time" >> "$tempfile"
             else
-                rank=$(( (rank * 99) / 100 ))
-                [[ $rank -gt 0 ]] && echo "$path|$rank|$time" >> "$tempfile"
+                [[ $(( rank = (rank * 99) / 100 )) -gt 0 ]] && echo "$path|$rank|$time" >> "$tempfile"
             fi
         done
     else
@@ -145,12 +113,9 @@ _lazy_add() {
 }
 
 _lazy_complete_func() {
-    case "$1" in
-        cd) (( COMP_CWORD > 1 )) && return 0
-            local target="$dirfile" ;;
-        "$_LAZY_EDITOR_NAME") local target="$filefile" ;;
-        *) return 0 ;;
-    esac
+    [[ "$1" == "cd" ]] && (( COMP_CWORD > 1 )) && return 0
+    local target="$filefile"
+    [[ "$1" == "cd" ]] && target="$dirfile"
 
     COMPREPLY=()
     local path rank time added_abs_paths=$'\n'
@@ -165,9 +130,7 @@ _lazy_complete_func() {
             if [[ "$q_frecency" == "$q_lower" && "${path,,}" == *"$q_lower"* ]] || \
                [[ "$q_frecency" != "$q_lower" && "$path" == *"$q_frecency"* ]]; then
                 COMPREPLY+=("$path")
-                local resolved_path="$(realpath -m "$path" 2>/dev/null || echo "$path")"
-                added_abs_paths+="${resolved_path}"$'\n'
-                [[ "$path" != "$resolved_path" ]] && added_abs_paths+="${path}"$'\n'
+                added_abs_paths+="${path}"$'\n'
             fi
         done < "$target"
     fi
@@ -175,11 +138,8 @@ _lazy_complete_func() {
     local local_path
     while IFS= read -r local_path; do
         [ -z "$local_path" ] && continue
-        if [[ "$local_path" == /* ]]; then
-            local abs_local_path="$(realpath -m "$local_path" 2>/dev/null || echo "$local_path")"
-        else
-            local abs_local_path="$(realpath -m "$local_path" 2>/dev/null || echo "$PWD/$local_path")"
-        fi
+        local abs_local_path="$local_path"
+        [[ "$local_path" != /* ]] && abs_local_path="$PWD/$local_path"
         
         if [[ "$added_abs_paths" != *$'\n'"$abs_local_path"$'\n'* ]]; then
             COMPREPLY+=("$local_path")
