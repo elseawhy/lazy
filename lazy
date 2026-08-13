@@ -193,21 +193,19 @@ cd() {
 
 eval "
 ${_LAZY_EDITOR_NAME}() {
-    case \$# in
-        0) command \${EDITOR} ; return ;;
-        *) for target in \"\$@\"; do
-               local absolute_path=\"\"
-               if [[ \"\$target\" != */* ]] && [ ! -f \"\$target\" ]; then
-                   absolute_path=\$(_lazy_search \"\$filefile\" \"\$target\")
-                   [ -f \"\$absolute_path\" ] && target=\"\$absolute_path\"
-               fi
+    [ \$# -eq 0 ] && { command \${EDITOR} ; return ; }
+    for target in \"\$@\"; do
+		local absolute_path=\"\"
+		if [[ \"\$target\" != */* ]] && [ ! -f \"\$target\" ]; then
+			absolute_path=\$(_lazy_search \"\$filefile\" \"\$target\")
+			[ -f \"\$absolute_path\" ] && target=\"\$absolute_path\"
+		fi
                
-               [[ \"\$target\" != \"\$absolute_path\" ]] && absolute_path=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
+		[[ \"\$target\" != \"\$absolute_path\" ]] && absolute_path=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
                
-               if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$absolute_path\"; then
-                   [ -f \"\$absolute_path\" ] && (_lazy_add \"\$filefile\" \"\$absolute_path\" &)
-               fi
-               _lazy_smart_open \"\$target\"
-           done ;;
-    esac
+		if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$absolute_path\"; then
+			[ -f \"\$absolute_path\" ] && (_lazy_add \"\$filefile\" \"\$absolute_path\" &)
+		fi
+		_lazy_smart_open \"\$target\"
+    done
 }"
