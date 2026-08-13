@@ -8,8 +8,8 @@ readonly _LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
 readonly dirfile="$(realpath -m "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}" 2>/dev/null || echo "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}")"
 readonly filefile="$(realpath -m "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}" 2>/dev/null || echo "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}")"
 
-[ -d "$dirfile" ] && { echo "ERROR: lazy's dir datafile ($dirfile) is a directory."; return 1; }
-[ -d "$filefile" ] && { echo "ERROR: lazy's file datafile ($filefile) is a directory."; return 1; }
+[[ -d "$dirfile" ]] && { echo "ERROR: lazy's dir datafile ($dirfile) is a directory."; return 1; }
+[[ -d "$filefile" ]] && { echo "ERROR: lazy's file datafile ($filefile) is a directory."; return 1; }
 
 export EDITOR="${EDITOR:-${VISUAL:-nano}}"
 export VISUAL="$EDITOR"
@@ -38,27 +38,6 @@ TUNABLES (export these in .bashrc before sourcing lazy)
         return
 }
 
-_lazy_smart_open() {
-    local abs_target="$(realpath -m "$1" 2>/dev/null || echo "$1")"
-    local -a _lazy_editor_cmd=($EDITOR)
-    
-    [ -d "$abs_target" ] && { echo "Hold up, '$abs_target' is a directory! Use cd instead."; return 1; }
-
-    if [ -e "$abs_target" ]; then
-        if [ -w "$abs_target" ]; then
-            command "${_lazy_editor_cmd[@]}" "$@"
-        else
-            command sudo -e "$@"
-        fi
-    else
-        if [ -w "$(dirname "$abs_target")" ]; then
-            command "${_lazy_editor_cmd[@]}" "$@"
-        else
-            command sudo "${_lazy_editor_cmd[@]}" "$@"
-        fi
-    fi
-}
-
 _lazy_is_blacklisted() {
     [[ -z "$1" ]] && return 1
     local pattern
@@ -74,9 +53,9 @@ _lazy_add() {
     [[ "$1" == "$dirfile" ]] && flag="-d"
     local -a lines=()
 
-    if [ -f "$1" ]; then
+    if [[ -f "$1" ]]; then
         while IFS="|" read -r path rank time; do
-            [ -z "$path" ] && continue
+            [[ -z "$path" ]] && continue
             [ $flag "$path" ] || continue
 
             [[ "$path" == "$2" ]] && (( rank++, found=1 )) && time=$(command date +%s)
@@ -86,8 +65,7 @@ _lazy_add() {
         done < "$1"
     fi
 
-    [[ $found -eq 0 ]] && lines+=("$2|1|$(command date +%s)")
-    (( total_count++ ))
+    [[ $found -eq 0 ]] && { lines+=("$2|1|$(command date +%s)"); (( total_count++ )); }
 
     if [[ $total_count -gt ${_LAZY_MAX_SCORE:-9000} ]]; then
         printf "%s\n" "${lines[@]}" | while IFS="|" read -r path rank time; do
@@ -112,12 +90,12 @@ _lazy_complete_func() {
     COMPREPLY=()
     local path rank time added_abs_paths=$'\n'
     
-    if [ -s "$target" ] && [[ "$2" != */* ]]; then
+    if [[ -s "$target" ]] && [[ "$2" != */* ]]; then
         local q_frecency="${2// /*}"
         local q_lower="${q_frecency,,}"
 
         while IFS="|" read -r path rank time; do
-            [ -z "$path" ] && continue
+            [[ -z "$path" ]] && continue
             
             if [[ "$q_frecency" == "$q_lower" && "${path,,}" == *"$q_lower"* ]] || \
                [[ "$q_frecency" != "$q_lower" && "$path" == *"$q_frecency"* ]]; then
@@ -129,7 +107,7 @@ _lazy_complete_func() {
 
     local local_path abs_local_path
     while IFS= read -r local_path; do
-        [ -z "$local_path" ] && continue
+        [[ -z "$local_path" ]] && continue
         abs_local_path="$local_path"
         [[ "$local_path" != /* ]] && abs_local_path="$PWD/$local_path"
         
@@ -137,12 +115,12 @@ _lazy_complete_func() {
             COMPREPLY+=("$local_path")
             added_abs_paths+="${abs_local_path}"$'\n'
         fi
-    done < <( if [ "$target" = "$dirfile" ]; then compgen -d -- "$2"; else compgen -f -- "$2"; fi )
+    done < <( if [[ "$target" == "$dirfile" ]]; then compgen -d -- "$2"; else compgen -f -- "$2"; fi )
 }
 
 _lazy_search() {
-    [ -z "$2" ] && return 1
-    [ -f "$1" ] || return 1
+    [[ -z "$2" ]] && return 1
+    [[ -f "$1" ]] || return 1
 
     local now=$(date +%s) hi_rank=-9999999999 ihi_rank=-9999999999 best_match="" ibest_match="" path rank time
     local q="${*:2}"
@@ -164,7 +142,7 @@ _lazy_search() {
     done < "$1"
 
     local final_match="${best_match:-$ibest_match}"
-    if [ -n "$final_match" ]; then
+    if [[ -n "$final_match" ]]; then
         echo "$final_match"
         return 0
     fi
@@ -176,12 +154,12 @@ complete -o nosort -o filenames -o bashdefault -o default -F _lazy_complete_func
 
 cd() {
     local old_pwd="$(command pwd -P 2>/dev/null)"
-    if [ $# -eq 0 ]; then
+    if [[ $# -eq 0 ]]; then
         builtin cd || return
-    elif [[ "$1" == "-" ]] || [ -d "$1" ]; then
-        builtin cd "$@" || return
+    elif [[ "$1" == "-" || -d "$*" ]]; then
+        builtin cd "$*" || return
     else
-        builtin cd "$(_lazy_search "$dirfile" "$@" || echo "$@")" || return
+        builtin cd "$(_lazy_search "$dirfile" "$@" || echo "$*")" || return
     fi
     local new_pwd="$(command pwd -P 2>/dev/null)"
 
@@ -192,17 +170,31 @@ cd() {
 
 eval "
 ${_LAZY_EDITOR_NAME}() {
-    [ \$# -eq 0 ] && { command \${EDITOR} ; return ; }
+    [[ \$# -eq 0 ]] && { command \${EDITOR} ; return ; }
+    local -a _lazy_editor_cmd=(\$EDITOR)
     for target in \"\$@\"; do
-		if [[ \"\$target\" != */* ]] && [ ! -f \"\$target\" ]; then
+		if [[ \"\$target\" != */* && ! -f \"\$target\" ]]; then
 			target=\"\$(_lazy_search \"\$filefile\" \"\$target\" || echo \"\$target\")\"
 		fi
                
 		[[ \"\$target\" != /* ]] && target=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
                
 		if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$target\"; then
-			[ -f \"\$target\" ] && (_lazy_add \"\$filefile\" \"\$target\" &)
+			[[ -f \"\$target\" ]] && (_lazy_add \"\$filefile\" \"\$target\" &)
 		fi
-		_lazy_smart_open \"\$target\"
+		
+		if [[ -e \"\$target\" ]]; then
+			if [[ -w \"\$target\" ]]; then
+				command \"\${_lazy_editor_cmd[@]}\" \"\$target\"
+			else
+				command sudo -e \"\$target\"
+			fi
+		else
+			if [[ -w \"\$(dirname \"\$target\")\" ]]; then
+				command \"\${_lazy_editor_cmd[@]}\" \"\$target\"
+			else
+				command sudo \"\${_lazy_editor_cmd[@]}\" \"\$target\"
+			fi
+		fi
     done
 }"
