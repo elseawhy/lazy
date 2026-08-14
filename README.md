@@ -104,5 +104,5 @@ Original `z.sh` was distributed under the WTFPL v2. This fork integrates algorit
 
 ## Acknowledgements
 * **[rupa deadwyler (z.sh)](https://github.com/rupa/z)** — Creator of the original `z.sh` and the core frecency jumping concept.
-* **[Joerg van den Hoff (ze.sh)](https://github.com/jghub/ze)** — Engineered the true exponential decay algorithm, the event-clock architecture, and the highly optimized `awk` core used in this fork.
+* **[Joerg van den Hoff (ze.sh)](https://github.com/jghub/ze)** — True exponential decay algorithm and the event-clock architecture.
 * **[elseawhy (lazy)]()** — Extended the logic to file tracking, built the smart editor auto-escalation wrappers, and integrated seamless background auto-pruning.
