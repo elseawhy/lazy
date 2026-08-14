@@ -6,7 +6,7 @@ Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgr
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/61fadf83-1ccf-4778-a152-d409569841a5" width="700" alt="lazy autocomplete menu">
-  <p><em>What the < 5ms autocomplete menu looks like when paired with Flyline!</em></p>
+  <p><em>Flyline's Auto Completion with lazy</em></p>
 </div>
 
 This fork extends the exact same concept to **files**, but removes all the clunky manual CLI commands. It is designed to be a completely silent, drop-in background utility that makes your `cd` and your `$EDITOR` incredibly smart.
