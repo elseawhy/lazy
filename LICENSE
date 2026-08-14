@@ -1,8 +1,3 @@
-This project originated as a fork of z.sh by rupa deadwyler, originally distributed under the WTFPL v2.
-It integrates the exponential decay awk engine from ze.sh by Joerg van den Hoff (jghub).
-lazy has since diverged substantially and is distributed under the MIT License.
-
-
 MIT License
 
 Copyright (c) 2009 rupa deadwyler
