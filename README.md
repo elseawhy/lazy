@@ -10,13 +10,12 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - **Ships smart wrappers out of the box** — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
 - **Auto-Privilege Escalation** — The editor wrapper intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes `sudo` or `sudo -e` instead. Zero friction.
 - **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
-- **Self-Cleaning** — Dead paths are automatically purged from the database during the read cycle if the file or directory no longer exists on your drive.
+- **Continuous Background Pruning** — Dead paths and old history are automatically purged from the database via a background process every time an entry is added, keeping the database perfectly clean with absolutely zero latency to your prompt.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
-- **100% Native Bash** — Unlike upstream, `lazy` completely strips out external binaries like `awk` or `bc`. All frecency math and garbage collection is executed natively in memory using Bash integer division for raw, zero-dependency speed.
-- **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed. Designed with a zero-subshell architecture, so autocomplete executes in <5ms.
+- **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed.
 - **Configurable Blacklists** — Exclude specific paths from ever polluting your history using colon-separated Bash globs. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
 
-All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa deadwyler](https://github.com/rupa). 
+All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa deadwyler](https://github.com/rupa/z), along with [ze.sh](https://github.com/jghub/ze) for the event clock and exponential decay algorithms.
 
 ## Who this script is for :)
 
@@ -72,14 +71,14 @@ You can override these by exporting them before the `source` line
 | --- | --- | --- |
 | `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
-| `_LAZY_MAX_SCORE` | `9000` | aging threshold before scores decay |
+| `_LAZY_LAMBDA` | `0.008` | exponential decay rate for scores |
 | `_LAZY_DIR_BLACKLIST` | `!($HOME/*)` | colon-separated glob patterns to ignore for cd |
 | `_LAZY_FILE_BLACKLIST`| `!($HOME/*)` | colon-separated glob patterns to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
 ## How it works
 
-Each line in a datafile is `path|rank|last_accessed_epoch`. Every time you visit a directory or open a file via your editor wrapper, its rank is bumped and its timestamp updated. Frecency is computed at query time by weighting rank against how recently the entry was touched. When the sum of all ranks in a datafile crosses `$_LAZY_MAX_SCORE`, every rank is aged down by a factor of 0.99 to keep old entries from dominating forever.
+Each line in a datafile is `path|visits|last_tick|score`. Instead of wall-clock time (which breaks if you take a break from coding), `lazy` uses an **[Event Clock](https://github.com/jghub/ze)**—time only moves forward when you execute a command. Every time you visit a path, its score undergoes true **[exponential decay](https://github.com/jghub/ze)** based on how many "ticks" have passed, and then gains a +1 bonus. When querying, the script fast-forwards all scores to the current tick to find the most relevant match. Entries that decay below a score of `0.05` are aggressively auto-pruned, meaning the database perfectly cleans itself!
 
 Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
 
@@ -94,4 +93,11 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 
 ## License
 
-WTFPL, same as upstream. See [LICENSE](LICENSE).
+Distributed under the **MIT License**. 
+
+Original `z.sh` was distributed under the WTFPL v2. This fork integrates algorithms from `ze.sh` (MIT License). See [LICENSE](LICENSE) for more information.
+
+## Acknowledgements
+* **[rupa deadwyler (z.sh)](https://github.com/rupa/z)** — Creator of the original `z.sh` and the core frecency jumping concept.
+* **[Joerg van den Hoff (ze.sh)](https://github.com/jghub/ze)** — Engineered the true exponential decay algorithm, the event-clock architecture, and the highly optimized `awk` core used in this fork.
+* **[elseawhy (lazy)]()** — Extended the logic to file tracking, built the smart editor auto-escalation wrappers, and integrated seamless background auto-pruning.

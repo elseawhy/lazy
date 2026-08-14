@@ -1,6 +1,10 @@
-# Copyright (c) 2009 rupa deadwyler. Licensed under the WTFPL license, Version 2
-# Forked/extended: tracks files as well as directories, renamed z -> lazy.
-# No awk/sed/gsub, no floating point math, this makes use of bash's math
+# Copyright (c) 2009 rupa deadwyler - core frecency concept
+# Copyright (c) 2026 Joerg van den Hoff (jghub) - awk engine & exponential decay
+# Copyright (c) 2026 elseawhy - file tracking, smart wrappers & auto-escalation
+#
+# Original z.sh was distributed under the WTFPL v2.
+# lazy is distributed under the MIT License.
+# Forked/extended to track files, implementing true exponential decay via awk.
 
 shopt -s extglob
 
@@ -21,7 +25,7 @@ _LAZY_DIR_BLACKLIST="${_LAZY_DIR_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 _LAZY_FILE_BLACKLIST="${_LAZY_FILE_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 
 lazy() {
-        echo "lazy - frecency-based smart cd and editor launcher
+	echo "lazy - frecency-based smart cd and editor launcher
 
 USAGE
   lazy help            show this help
@@ -31,11 +35,10 @@ USAGE
 TUNABLES (export these in .bashrc before sourcing lazy)
   _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)
   _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)
-  _LAZY_MAX_SCORE         aging threshold before scores decay (default: 9000)
+  _LAZY_LAMBDA            exponential decay rate (default: 0.008)
   _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !(\$HOME/*))
   _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !(\$HOME/*))
   EDITOR                  program used to open matched files (default: nano)"
-        return
 }
 
 _lazy_is_blacklisted() {
@@ -49,32 +52,42 @@ _lazy_is_blacklisted() {
 }
 
 _lazy_add() {
-    local tempfile="$1.$RANDOM" total_count=0 found=0 path rank time flag="-f"
+    local tempfile="$1.$RANDOM" flag="-f"
     [[ "$1" == "$dirfile" ]] && flag="-d"
-    local -a lines=()
-
-    if [[ -f "$1" ]]; then
-        while IFS="|" read -r path rank time; do
-            [[ -z "$path" ]] && continue
-            [ $flag "$path" ] || continue
-
-            [[ "$path" == "$2" ]] && (( rank++, found=1 )) && time=$(command date +%s)
-
-            lines+=("$path|$rank|$time")
-            (( total_count += rank ))
-        done < "$1"
-    fi
-
-    [[ $found -eq 0 ]] && { lines+=("$2|1|$(command date +%s)"); (( total_count++ )); }
-
-    if [[ $total_count -gt ${_LAZY_MAX_SCORE:-9000} ]]; then
-        printf "%s\n" "${lines[@]}" | while IFS="|" read -r path rank time; do
-            [[ "$path" != "$2" ]] && (( rank = (rank * 99) / 100 ))
-            [[ $rank -gt 0 ]] && echo "$path|$rank|$time"
-        done > "$tempfile"
-    else
-        printf "%s\n" "${lines[@]}" > "$tempfile"
-    fi
+    
+    awk -F"|" -v target="$2" -v lambda="${_LAZY_LAMBDA:-0.008}" '
+        BEGIN { OFS="|" }
+        {
+            lines[NR] = $0
+            if ($3 > tmax) tmax = $3
+            if ($1 == target) {
+                target_idx = NR
+                visits = $2
+                last_tick = $3
+                score = $4
+            }
+        }
+        END {
+            now = tmax + 1
+            if (target_idx) {
+                score = score * exp(-lambda * (now - last_tick)) + 1
+                lines[target_idx] = target "|" (visits + 1) "|" now "|" score
+            } else {
+                lines[++NR] = target "|1|" now "|1"
+            }
+            for (i=1; i<=NR; i++) {
+                split(lines[i], f, "|")
+                if (f[1] != target) {
+                    current_score = f[4] * exp(-lambda * (now - f[3]))
+                    if (current_score > 0.05) print f[1], f[2], f[3], current_score
+                } else {
+                    print lines[i]
+                }
+            }
+        }
+    ' "$1" 2>/dev/null | while IFS="|" read -r path rest; do
+        [ $flag "$path" ] && echo "$path|$rest"
+    done > "$tempfile"
 
     if [[ -s "$tempfile" ]]; then
         \env mv -f "$tempfile" "$1"
@@ -94,7 +107,7 @@ _lazy_complete_func() {
         local q_frecency="${2// /*}"
         local q_lower="${q_frecency,,}"
 
-        while IFS="|" read -r path rank time; do
+        while IFS="|" read -r path rest; do
             [[ -z "$path" ]] && continue
             
             if [[ "$q_frecency" == "$q_lower" && "${path,,}" == *"$q_lower"* ]] || \
@@ -122,31 +135,36 @@ _lazy_search() {
     [[ -z "$2" ]] && return 1
     [[ -f "$1" ]] || return 1
 
-    local now=$(date +%s) hi_rank=-9999999999 ihi_rank=-9999999999 best_match="" ibest_match="" path rank time
-    local q="${*:2}"
-    q="${q// /*}"
-    local q_lower="${q,,}"
-
-    while IFS="|" read -r path rank time; do
-        [ -z "$path" ] && continue
-
-        if [[ "${path,,}" == *"$q_lower"* ]]; then
-            local current_rank=$(( (375000000 * rank) / (now - time + 12500) ))
-            
-            if [[ "$q" == "$q_lower" ]] || [[ "$path" == *"$q"* ]]; then
-                (( current_rank > hi_rank )) && hi_rank=$current_rank && best_match="$path"
-            else
-                (( current_rank > ihi_rank )) && ihi_rank=$current_rank && ibest_match="$path"
-            fi
-        fi
-    done < "$1"
-
-    local final_match="${best_match:-$ibest_match}"
-    if [[ -n "$final_match" ]]; then
-        echo "$final_match"
-        return 0
-    fi
-    return 1
+    awk -F"|" -v q="${*:2}" -v lambda="${_LAZY_LAMBDA:-0.008}" '
+        BEGIN { 
+            hi = -1; ihi = -1 
+            gsub(/ /, ".*", q)
+            q_lower = tolower(q)
+        }
+        {
+            if ($3 > tmax) tmax = $3
+            lines[NR] = $0
+        }
+        END {
+            for (i=1; i<=NR; i++) {
+                split(lines[i], f, "|")
+                candidate = f[1]
+                
+                if (tolower(candidate) ~ q_lower) {
+                    current_score = f[4] * exp(-lambda * (tmax - f[3]))
+                    
+                    if (candidate ~ q) {
+                        if (current_score > hi) { hi = current_score; bm = candidate }
+                    } else {
+                        if (current_score > ihi) { ihi = current_score; ibm = candidate }
+                    }
+                }
+            }
+            final = bm ? bm : ibm
+            if (final) { print final; exit 0 }
+            exit 1
+        }
+    ' "$1" || return 1
 }
 
 complete -o nosort -o filenames -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
