@@ -35,7 +35,7 @@ USAGE
 TUNABLES (export these in .bashrc before sourcing lazy)
   _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)
   _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)
-  _LAZY_LAMBDA            exponential decay rate (default: 0.008)
+  _LAZY_HALF_LIFE         commands until score halves (default: 86)
   _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !(\$HOME/*))
   _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !(\$HOME/*))
   EDITOR                  program used to open matched files (default: nano)"
@@ -55,7 +55,7 @@ _lazy_add() {
     local tempfile="$1.$RANDOM" flag="-f"
     [[ "$1" == "$dirfile" ]] && flag="-d"
     
-    awk -F"|" -v target="$2" -v lambda="${_LAZY_LAMBDA:-0.008}" '
+    awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-86}" '
         BEGIN { OFS="|" }
         {
             lines[NR] = $0
@@ -70,7 +70,7 @@ _lazy_add() {
         END {
             now = tmax + 1
             if (target_idx) {
-                score = score * exp(-lambda * (now - last_tick)) + 1
+                score = score * (0.5 ^ ((now - last_tick) / H)) + 1
                 lines[target_idx] = target "|" (visits + 1) "|" now "|" score
             } else {
                 lines[++NR] = target "|1|" now "|1"
@@ -78,7 +78,7 @@ _lazy_add() {
             for (i=1; i<=NR; i++) {
                 split(lines[i], f, "|")
                 if (f[1] != target) {
-                    current_score = f[4] * exp(-lambda * (now - f[3]))
+                    current_score = f[4] * (0.5 ^ ((now - f[3]) / H))
                     if (current_score > 0.05) print f[1], f[2], f[3], current_score
                 } else {
                     print lines[i]
@@ -112,7 +112,7 @@ _lazy_complete_func() {
             
             if [[ "$q_frecency" == "$q_lower" && "${path,,}" == *"$q_lower"* ]] || \
                [[ "$q_frecency" != "$q_lower" && "$path" == *"$q_frecency"* ]]; then
-                COMPREPLY+=("$path")
+                COMPREPLY+=("${path/#$_LAZY_REAL_HOME/\~}")
                 added_abs_paths+="${path}"$'\n'
             fi
         done < "$target"
@@ -135,7 +135,7 @@ _lazy_search() {
     [[ -z "$2" ]] && return 1
     [[ -f "$1" ]] || return 1
 
-    awk -F"|" -v q="${*:2}" -v lambda="${_LAZY_LAMBDA:-0.008}" '
+    awk -F"|" -v q="${*:2}" -v H="${_LAZY_HALF_LIFE:-86}" '
         BEGIN { 
             hi = -1; ihi = -1 
             gsub(/ /, ".*", q)
@@ -146,17 +146,20 @@ _lazy_search() {
             lines[NR] = $0
         }
         END {
+            now = tmax + 1
             for (i=1; i<=NR; i++) {
                 split(lines[i], f, "|")
                 candidate = f[1]
+                cand_lower = tolower(candidate)
                 
-                if (tolower(candidate) ~ q_lower) {
-                    current_score = f[4] * exp(-lambda * (tmax - f[3]))
-                    
-                    if (candidate ~ q) {
-                        if (current_score > hi) { hi = current_score; bm = candidate }
-                    } else {
-                        if (current_score > ihi) { ihi = current_score; ibm = candidate }
+                if (cand_lower ~ q_lower) {
+                    current_score = f[4] * (0.5 ^ ((now - f[3]) / H))
+                    if (current_score > 0.05) {
+                        if (candidate ~ q) {
+                            if (current_score > hi) { hi = current_score; bm = candidate }
+                        } else {
+                            if (current_score > ihi) { ihi = current_score; ibm = candidate }
+                        }
                     }
                 }
             }
