@@ -5,7 +5,7 @@
 Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgrd/flyline).
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/61fadf83-1ccf-4778-a152-d409569841a5" width="700" alt="lazy autocomplete menu">
+  <img src="https://github.com/user-attachments/assets/d555a86b-daff-4692-820a-4164cc00f9da" width="700" alt="lazy autocomplete menu">
   <p><em>Flyline's Auto Suggestion with lazy</em></p>
 </div>
 
@@ -83,7 +83,7 @@ You can override these by exporting them before the `source` line
 
 ## How it works
 
-Each line in a datafile is `path|visits|last_tick|score`. Instead of wall-clock time (which breaks if you take a break from coding), `lazy` uses an **[Event Clock](https://github.com/jghub/ze)**—time only moves forward when you execute a command. Every time you visit a path, its score undergoes a radioactive half-life decay** (inspired by the exponential decay algorithm from **[jghub/ze.sh](https://github.com/jghub/ze)**) based on how many "ticks" have passed, and then gains a +1 bonus. When querying, the script fast-forwards all scores to the current tick to find the most relevant match. Entries that decay below a score of `0.05` are aggressively auto-pruned, meaning the database perfectly cleans itself!
+Each line in a datafile is `path|visits|last_tick|score`. Instead of wall-clock time (which breaks if you take a break from coding), `lazy` uses an **[Event Clock](https://github.com/jghub/ze)**—time only moves forward when you execute a command. Every time you visit a path, its score undergoes a radioactive half-life decay (inspired by the exponential decay algorithm from **[jghub/ze.sh](https://github.com/jghub/ze)**) based on how many "ticks" have passed, and then gains a +1 bonus. When querying, the script fast-forwards all scores to the current tick to find the most relevant match. Entries that decay below a score of `0.05` are aggressively auto-pruned, meaning the database perfectly cleans itself!
 
 Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
 
