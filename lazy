@@ -1,10 +1,9 @@
 # Copyright (c) 2009 rupa deadwyler - core frecency concept
-# Copyright (c) 2026 Joerg van den Hoff (jghub) - awk engine & exponential decay
+# Copyright (c) 2026 Joerg van den Hoff (jghub) - exponential decay
 # Copyright (c) 2026 elseawhy - file tracking, smart wrappers & auto-escalation
 #
 # Original z.sh was distributed under the WTFPL v2.
-# lazy is distributed under the MIT License.
-# Forked/extended to track files, implementing true exponential decay via awk.
+# lazy is distributed under the MIT License, forked/extended to track files.
 
 shopt -s extglob
 
@@ -35,7 +34,7 @@ USAGE
 TUNABLES (export these in .bashrc before sourcing lazy)
   _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)
   _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)
-  _LAZY_HALF_LIFE         commands until score halves (default: 86)
+  _LAZY_HALF_LIFE         commands until score halves (default: 85)
   _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !(\$HOME/*))
   _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !(\$HOME/*))
   EDITOR                  program used to open matched files (default: nano)"
@@ -55,7 +54,7 @@ _lazy_add() {
     local tempfile="$1.$RANDOM" flag="-f"
     [[ "$1" == "$dirfile" ]] && flag="-d"
     
-    awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-86}" '
+    awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-85}" '
         BEGIN { OFS="|" }
         {
             lines[NR] = $0
@@ -68,17 +67,16 @@ _lazy_add() {
             }
         }
         END {
-            now = tmax + 1
             if (target_idx) {
-                score = score * (0.5 ^ ((now - last_tick) / H)) + 1
-                lines[target_idx] = target "|" (visits + 1) "|" now "|" score
+                score = score / (2 ^ ((tmax + 1 - last_tick) / H)) + 1
+                lines[target_idx] = target "|" (visits + 1) "|" (tmax + 1) "|" score
             } else {
-                lines[++NR] = target "|1|" now "|1"
+                lines[++NR] = target "|1|" (tmax + 1) "|1"
             }
             for (i=1; i<=NR; i++) {
                 split(lines[i], f, "|")
                 if (f[1] != target) {
-                    current_score = f[4] * (0.5 ^ ((now - f[3]) / H))
+                    current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
                     if (current_score > 0.05) print f[1], f[2], f[3], current_score
                 } else {
                     print lines[i]
@@ -135,9 +133,8 @@ _lazy_search() {
     [[ -z "$2" ]] && return 1
     [[ -f "$1" ]] || return 1
 
-    awk -F"|" -v q="${*:2}" -v H="${_LAZY_HALF_LIFE:-86}" '
+    awk -F"|" -v q="${*:2}" -v H="${_LAZY_HALF_LIFE:-85}" '
         BEGIN { 
-            hi = -1; ihi = -1 
             gsub(/ /, ".*", q)
             q_lower = tolower(q)
         }
@@ -146,25 +143,22 @@ _lazy_search() {
             lines[NR] = $0
         }
         END {
-            now = tmax + 1
             for (i=1; i<=NR; i++) {
                 split(lines[i], f, "|")
-                candidate = f[1]
-                cand_lower = tolower(candidate)
                 
-                if (cand_lower ~ q_lower) {
-                    current_score = f[4] * (0.5 ^ ((now - f[3]) / H))
+                if (tolower(f[1]) ~ q_lower) {
+                    current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
                     if (current_score > 0.05) {
-                        if (candidate ~ q) {
-                            if (current_score > hi) { hi = current_score; bm = candidate }
+                        if (f[1] ~ q) {
+                            if (current_score > hi) { hi = current_score; bm = f[1] }
                         } else {
-                            if (current_score > ihi) { ihi = current_score; ibm = candidate }
+                            if (current_score > ihi) { ihi = current_score; ibm = f[1] }
                         }
                     }
                 }
             }
-            final = bm ? bm : ibm
-            if (final) { print final; exit 0 }
+            if (bm) { print bm; exit 0 }
+            else if (ibm) { print ibm; exit 0 }
             exit 1
         }
     ' "$1" || return 1
