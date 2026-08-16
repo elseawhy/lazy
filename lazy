@@ -24,20 +24,27 @@ _LAZY_DIR_BLACKLIST="${_LAZY_DIR_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 _LAZY_FILE_BLACKLIST="${_LAZY_FILE_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 
 lazy() {
-	echo "lazy - frecency-based smart cd and editor launcher
-
-USAGE
-  lazy help            show this help
-  cd foo               falls back to smart directory jump
-  $_LAZY_EDITOR_NAME foo               falls back to smart file open (auto-escalates if outside \$HOME)
-
-TUNABLES (export these in .bashrc before sourcing lazy)
-  _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)
-  _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)
-  _LAZY_HALF_LIFE         commands until score halves (default: 85)
-  _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !(\$HOME/*))
-  _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !(\$HOME/*))
-  EDITOR                  program used to open matched files (default: nano)"
+    awk -v H="${_LAZY_HALF_LIFE:-85}" -v T="${_LAZY_PRUNE_THRESHOLD:-0.05}" \
+        -v editor="$_LAZY_EDITOR_NAME" 'BEGIN {
+        print "lazy - frecency-based smart cd and editor launcher\n"
+        print "USAGE"
+        printf "  %-21s%s\n", "lazy help", "show this help"
+        printf "  %-21s%s\n", "cd foo", "falls back to smart directory jump"
+        printf "  %-21s%s\n\n", editor " foo", "falls back to smart file open (auto-escalates if outside $HOME)"
+        print "TUNABLES (export these in .bashrc before sourcing lazy)"
+        print "  _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)"
+        print "  _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)"
+        print "  _LAZY_HALF_LIFE         commands until score halves (default: 85)"
+        print "  _LAZY_PRUNE_THRESHOLD   score at which entries are deleted (default: 0.05)"
+        print "  _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !($HOME/*))"
+        print "  _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !($HOME/*))"
+        print "  EDITOR                  program used to open matched files (default: nano)\n"
+        print "CURRENT STATS (Half-Life: " H ", Prune Threshold: " T ")"
+        printf "  Maximum possible score: %.1f\n", 1 / (1 - (0.5 ^ (1 / H)))
+        printf "  Commands to forget a 1-visit entry: %d\n", log(T) / log(0.5) * H
+        printf "  Commands to forget a maxed-out entry: %d\n", log(T / (1 / (1 - (0.5 ^ (1 / H))))) / log(0.5) * H
+        printf "  Database capacity (unique entries): %d\n", log(T) / log(0.5) * H
+    }'
 }
 
 _lazy_is_blacklisted() {
@@ -54,7 +61,7 @@ _lazy_add() {
     local tempfile="$1.$RANDOM" flag="-f"
     [[ "$1" == "$dirfile" ]] && flag="-d"
     
-    awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-85}" '
+    awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-85}" -v T="${_LAZY_PRUNE_THRESHOLD:-0.05}" '
         BEGIN { OFS="|" }
         {
             lines[NR] = $0
@@ -77,7 +84,7 @@ _lazy_add() {
                 split(lines[i], f, "|")
                 if (f[1] != target) {
                     current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
-                    if (current_score > 0.05) print f[1], f[2], f[3], current_score
+                    if (current_score > T) print f[1], f[2], f[3], current_score
                 } else {
                     print lines[i]
                 }
@@ -133,7 +140,7 @@ _lazy_search() {
     [[ -z "$2" ]] && return 1
     [[ -f "$1" ]] || return 1
 
-    awk -F"|" -v q="${*:2}" -v H="${_LAZY_HALF_LIFE:-85}" '
+    awk -F"|" -v q="${*:2}" -v H="${_LAZY_HALF_LIFE:-85}" -v T="${_LAZY_PRUNE_THRESHOLD:-0.05}" '
         BEGIN { 
             gsub(/ /, ".*", q)
             q_lower = tolower(q)
@@ -148,7 +155,7 @@ _lazy_search() {
                 
                 if (tolower(f[1]) ~ q_lower) {
                     current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
-                    if (current_score > 0.05) {
+                    if (current_score > T) {
                         if (f[1] ~ q) {
                             if (current_score > hi) { hi = current_score; bm = f[1] }
                         } else {

@@ -77,13 +77,14 @@ You can override these by exporting them before the `source` line
 | `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_HALF_LIFE` | `85` | number of commands before a score halves |
+| `_LAZY_PRUNE_THRESHOLD` | `0.05` | score at which entries are deleted |
 | `_LAZY_DIR_BLACKLIST` | `!($HOME/*)` | colon-separated glob patterns to ignore for cd |
 | `_LAZY_FILE_BLACKLIST`| `!($HOME/*)` | colon-separated glob patterns to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
 ## How it works
 
-Each line in a datafile is `path|visits|last_tick|score`. Instead of wall-clock time, which breaks if you take a break from accessing a frequently-accessed folder/file, `lazy` uses an **Event Clock**—time only moves forward when you execute a command. Every time you visit a path, its score undergoes a radioactive **half-life decay** (`score / (2 ^ (ticks / HALF_LIFE))`) based on how many ticks have passed, and then gains a +1 bonus. *(Both the Event Clock architecture and the underlying decay algorithms were heavily inspired by **[jghub/ze](https://github.com/jghub/ze)**).* When querying, the script fast-forwards all scores to the current tick to find the most relevant match. Entries that decay below a score of `0.05` are aggressively auto-pruned, meaning the database perfectly cleans itself!
+Each line in a datafile is `path|visits|last_tick|score`. Instead of wall-clock time, which breaks if you take a break from accessing a frequently-accessed folder/file, `lazy` uses an **Event Clock**—time only moves forward when you execute a command. Every time you visit a path, its score undergoes a radioactive **half-life decay** (`score / (2 ^ (ticks / HALF_LIFE))`) based on how many ticks have passed, and then gains a +1 bonus. *(Both the Event Clock architecture and the underlying decay algorithms were heavily inspired by **[jghub/ze](https://github.com/jghub/ze)**).* When querying, the script fast-forwards all scores to the current tick to find the most relevant match. Entries that decay below the pruning threshold (`0.05` by default) are aggressively auto-pruned, meaning the database perfectly cleans itself!
 
 Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
 
