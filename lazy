@@ -89,7 +89,7 @@ _lazy_write() {
         }
     ' "$1" 2>/dev/null | while IFS="|" read -r path rest; do
         [ $flag "$path" ] && echo "$path|$rest"
-    done | LC_ALL=C sort -t'|' -k4,4g -k1,1 | tail -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile"
+    done | LC_ALL=C sort -t'|' -k4,4gr -k1,1 | head -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile"
 
     if [[ -s "$tempfile" ]]; then
         \env mv -f "$tempfile" "$1"

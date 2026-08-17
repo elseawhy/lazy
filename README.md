@@ -43,8 +43,6 @@ Then just use your terminal normally — `cd` around, open a few files — for a
 
 ## Use
 
-There are no clunky `lazy file foo` commands to memorize. Just use your normal commands, and the script handles the rest quietly in the background.
-
 Assuming you set `EDITOR=nvim` (swap `nvim` for `micro`, `emacs`, etc.), here is exactly how the script behaves in every scenario:
 
 | Command Typed | Target Exists? | Write Access? | What happens quietly in the background |
