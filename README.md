@@ -9,13 +9,13 @@ Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgr
   <p><em>Flyline's Auto Suggestion with lazy</em></p>
 </div>
 
-This fork extends the exact same concept to **files**, but removes all the clunky manual CLI commands. It is designed to be a completely silent, drop-in background utility that makes your `cd` and your `$EDITOR` incredibly smart.
+This fork extends the exact same concept to **files**, but removes all the clunky manual CLI commands. It is designed to be a completely silent, drop-in background utility that makes your `cd` and your `$EDITOR` context-aware and highly efficient.
 
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
 - **Ships smart wrappers out of the box** — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
 - **Auto-Privilege Escalation** — The editor wrapper intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes `sudo` or `sudo -e` instead. Zero friction.
 - **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
-- **Continuous Background Pruning** — Dead paths and old history are automatically purged from the database via a background process every time an entry is added, keeping the database perfectly clean with absolutely zero latency to your prompt.
+- **Continuous Background Pruning** — Dead paths and old history are automatically purged from the database via a background process every time an entry is added, keeping the database perfectly clean with virtually zero latency to your prompt.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
 - **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed.
 - **Configurable Blacklists** — Exclude specific paths from ever polluting your history using colon-separated Bash globs. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
@@ -77,14 +77,14 @@ You can override these by exporting them before the `source` line
 | `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
 | `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
 | `_LAZY_HALF_LIFE` | `85` | number of commands before a score halves |
-| `_LAZY_PRUNE_THRESHOLD` | `0.05` | score at which entries are deleted |
+| `_LAZY_MAX_ENTRIES` | `1000` | maximum number of entries to track per file |
 | `_LAZY_DIR_BLACKLIST` | `!($HOME/*)` | colon-separated glob patterns to ignore for cd |
 | `_LAZY_FILE_BLACKLIST`| `!($HOME/*)` | colon-separated glob patterns to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
 ## How it works
 
-Each line in a datafile is `path|visits|last_tick|score`. Instead of wall-clock time, which breaks if you take a break from accessing a frequently-accessed folder/file, `lazy` uses an **Event Clock**—time only moves forward when you execute a command. Every time you visit a path, its score undergoes a radioactive **half-life decay** (`score / (2 ^ (ticks / HALF_LIFE))`) based on how many ticks have passed, and then gains a +1 bonus. *(Both the Event Clock architecture and the underlying decay algorithms were heavily inspired by **[jghub/ze](https://github.com/jghub/ze)**).* When querying, the script fast-forwards all scores to the current tick to find the most relevant match. Entries that decay below the pruning threshold (`0.05` by default) are aggressively auto-pruned, meaning the database perfectly cleans itself!
+Each line in a datafile is `path|visits|last_tick|score`. Instead of wall-clock time, which breaks if you take a break from accessing a frequently-accessed folder/file, `lazy` uses an **Event Clock**—time only moves forward when you execute a command. Every time you visit a path, its score undergoes a radioactive **half-life decay** (`score / (2 ^ (ticks / HALF_LIFE))`) based on how many ticks have passed, and then gains a +1 bonus. *(Both the Event Clock architecture and the underlying decay algorithms were heavily inspired by **[jghub/ze](https://github.com/jghub/ze)**).* When querying, the script fast-forwards all scores to the current tick to find the most relevant match. The database is strictly capped at a maximum capacity (`1000` entries by default); whenever it exceeds this limit, the lowest-scoring entries are automatically pruned, keeping it fast and clutter-free.
 
 Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
 
