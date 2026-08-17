@@ -24,23 +24,30 @@ _LAZY_DIR_BLACKLIST="${_LAZY_DIR_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 _LAZY_FILE_BLACKLIST="${_LAZY_FILE_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 
 lazy() {
-    awk -v H="${_LAZY_HALF_LIFE:-85}" -v M="${_LAZY_MAX_ENTRIES:-1000}" \
-        -v editor="$_LAZY_EDITOR_NAME" 'BEGIN {
-        print "lazy - frecency-based smart cd and editor launcher\n"
-        print "USAGE"
-        printf "  %-21s%s\n", "lazy help", "show this help"
-        printf "  %-21s%s\n", "cd foo", "falls back to smart directory jump"
-        printf "  %-21s%s\n\n", editor " foo", "falls back to smart file open (auto-escalates if outside $HOME)"
-        print "TUNABLES (export these in .bashrc before sourcing lazy)"
-        print "  _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)"
-        print "  _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)"
-        print "  _LAZY_HALF_LIFE         commands until score halves (default: 85)"
-        print "  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)"
-        print "  _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !($HOME/*))"
-        print "  _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !($HOME/*))"
-        print "  EDITOR                  program used to open matched files (default: nano)\n"
-        print "CURRENT STATS (Half-Life: " H ", Max Entries: " M ")"
-        printf "  Maximum possible score: %.1f\n", 1 / (1 - (0.5 ^ (1 / H)))
+    awk -v H="${_LAZY_HALF_LIFE:-85}" -v M="${_LAZY_MAX_ENTRIES:-1000}" -v editor="$_LAZY_EDITOR_NAME" 'BEGIN {
+        printf "lazy - frecency-based smart cd and editor launcher\n\n" \
+               "USAGE\n" \
+               "  %-21s%s\n" \
+               "  %-21s%s\n" \
+               "  %-21s%s\n\n" \
+               "TUNABLES (initialize these in .bashrc before sourcing lazy)\n" \
+               "  _LAZY_DIR_DATA          directory datafile path (default: ~/.lazydir)\n" \
+               "  _LAZY_FILE_DATA         file datafile path (default: ~/.lazyfile)\n" \
+               "  _LAZY_HALF_LIFE         commands until score halves (default: 85)\n" \
+               "  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n" \
+               "  _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !($HOME/*))\n" \
+               "  _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !($HOME/*))\n" \
+               "  EDITOR                  program used to open matched files (default: nano)\n\n" \
+               "CURRENT STATS\n" \
+               "  %-24s%s\n" \
+               "  %-24s%s\n" \
+               "  %-24s%.1f\n",
+               "lazy help", "show this help",
+               "cd foo", "falls back to smart directory jump",
+               editor " foo", "falls back to smart file open (auto-escalates if outside $HOME)",
+               "Half-Life:", H " commands",
+               "Max Entries:", M,
+               "Maximum possible score:", 1 / (1 - (0.5 ^ (1 / H)))
     }'
 }
 
@@ -111,7 +118,6 @@ _lazy_complete_func() {
 
         while IFS="|" read -r path rest; do
             [[ -z "$path" ]] && continue
-            
             if [[ "$q_frecency" == "$q_lower" && "${path,,}" == *"$q_lower"* ]] || \
                [[ "$q_frecency" != "$q_lower" && "$path" == *"$q_frecency"* ]]; then
                 COMPREPLY+=("${path/#$_LAZY_REAL_HOME/\~}")
@@ -149,7 +155,6 @@ _lazy_read() {
         END {
             for (i=1; i<=NR; i++) {
                 split(lines[i], f, "|")
-                
                 if (tolower(f[1]) ~ q_lower) {
                     current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
                     if (f[1] ~ q) {
