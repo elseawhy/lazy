@@ -66,37 +66,21 @@ _lazy_write() {
     [[ "$1" == "$dirfile" ]] && flag="-d"
     
     awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-85}" '
-        BEGIN { OFS="|"; OFMT="%.17g"; CONVFMT="%.17g" }
+        BEGIN { OFS="|"; OFMT="%.17g"; CONVFMT="%.17g"; decay = 2 ^ (1 / H) }
         {
-            lines[NR] = $0
-            if ($3 > tmax) tmax = $3
             if ($1 == target) {
-                target_idx = NR
-                visits = $2
-                last_tick = $3
-                score = $4
+                found = 1
+                print $1, ($2 / decay) + 1
+            } else {
+                print $1, $2 / decay
             }
         }
         END {
-            if (target_idx) {
-                score = score / (2 ^ ((tmax + 1 - last_tick) / H)) + 1
-                lines[target_idx] = target "|" (visits + 1) "|" (tmax + 1) "|" score
-            } else {
-                lines[++NR] = target "|1|" (tmax + 1) "|1"
-            }
-            for (i=1; i<=NR; i++) {
-                split(lines[i], f, "|")
-                if (f[1] != target) {
-                    current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
-                    print f[1], f[2], tmax + 1, current_score
-                } else {
-                    print lines[i]
-                }
-            }
+            if (!found) print target, 1
         }
     ' "$1" 2>/dev/null | while IFS="|" read -r path rest; do
         [ $flag "$path" ] && echo "$path|$rest"
-    done | LC_ALL=C sort -t'|' -k4,4gr -k1,1 | head -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile"
+    done | LC_ALL=C sort -t'|' -k2,2gr -k1,1 | head -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile"
 
     if [[ -s "$tempfile" ]]; then
         \env mv -f "$tempfile" "$1"
@@ -145,21 +129,21 @@ _lazy_read() {
 
     local raw_query="${*:2}"
     local query_pattern="${raw_query// /*}"
-    local query_lower_pattern="${query_pattern,,}" path rest match=""
+    local query_lower_pattern="${query_pattern,,}" path rest fallback=""
     while IFS="|" read -r path rest; do
         [[ -z "$path" ]] && continue
         
-        if [[ "${path,,}" == *${query_lower_pattern}* ]]; then
-            if [[ "$query_pattern" == "$query_lower_pattern" ]] || [[ "$path" == *${query_pattern}* ]]; then
-                echo "$path"
-                return 0
-            elif [[ -z "$match" ]]; then
-                match="$path"
-            fi
+        local basename="${path##*/}"
+        
+        if [[ "${basename,,}" == *${query_lower_pattern}* ]] && [[ "$query_pattern" == "$query_lower_pattern" || "$basename" == *${query_pattern}* ]]; then
+            echo "$path"
+            return 0
+        elif [[ "${path,,}" == *${query_lower_pattern}* ]]; then
+            [[ -z "$fallback" ]] && fallback="$path"
         fi
     done < "$1"
 
-    [[ -n "$match" ]] && echo "$match" || return 1
+    [[ -n "$fallback" ]] && echo "$fallback" || return 1
 }
 
 complete -o nosort -o filenames -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
