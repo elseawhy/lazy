@@ -88,7 +88,7 @@ _lazy_write() {
                 split(lines[i], f, "|")
                 if (f[1] != target) {
                     current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
-                    print f[1], f[2], f[3], current_score
+                    print f[1], f[2], tmax + 1, current_score
                 } else {
                     print lines[i]
                 }
@@ -143,32 +143,27 @@ _lazy_read() {
     [[ -z "$2" ]] && return 1
     [[ -f "$1" ]] || return 1
 
-    awk -F"|" -v q="${*:2}" -v H="${_LAZY_HALF_LIFE:-85}" '
-        BEGIN { 
-            gsub(/ /, ".*", q)
-            q_lower = tolower(q)
-        }
-        {
-            if ($3 > tmax) tmax = $3
-            lines[NR] = $0
-        }
-        END {
-            for (i=1; i<=NR; i++) {
-                split(lines[i], f, "|")
-                if (tolower(f[1]) ~ q_lower) {
-                    current_score = f[4] / (2 ^ ((tmax + 1 - f[3]) / H))
-                    if (f[1] ~ q) {
-                        if (current_score > hi) { hi = current_score; bm = f[1] }
-                    } else {
-                        if (current_score > ihi) { ihi = current_score; ibm = f[1] }
-                    }
-                }
-            }
-            if (bm) { print bm; exit 0 }
-            else if (ibm) { print ibm; exit 0 }
-            exit 1
-        }
-    ' "$1" || return 1
+    local raw_query="${*:2}"
+    local query_pattern="${raw_query// /*}"
+    local query_lower_pattern="${query_pattern,,}" path rest match=""
+    while IFS="|" read -r path rest; do
+        [[ -z "$path" ]] && continue
+        
+        if [[ "${path,,}" == *${query_lower_pattern}* ]]; then
+            if [[ "$query_pattern" == "$query_lower_pattern" ]] || [[ "$path" == *${query_pattern}* ]]; then
+                echo "$path"
+                return 0
+            elif [[ -z "$match" ]]; then
+                match="$path"
+            fi
+        fi
+    done < "$1"
+
+    if [[ -n "$match" ]]; then
+        echo "$match"
+        return 0
+    fi
+    return 1
 }
 
 complete -o nosort -o filenames -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
