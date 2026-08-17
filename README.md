@@ -4,11 +4,6 @@
 
 Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgrd/flyline).
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/d555a86b-daff-4692-820a-4164cc00f9da" width="700" alt="lazy autocomplete menu">
-  <p><em>Flyline's Auto Suggestion with lazy</em></p>
-</div>
-
 This fork extends the exact same concept to **files**, but removes all the clunky manual CLI commands. It is designed to be a completely silent, drop-in background utility that makes your `cd` and your `$EDITOR` context-aware and highly efficient.
 
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
