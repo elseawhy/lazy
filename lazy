@@ -159,11 +159,7 @@ _lazy_read() {
         fi
     done < "$1"
 
-    if [[ -n "$match" ]]; then
-        echo "$match"
-        return 0
-    fi
-    return 1
+    [[ -n "$match" ]] && echo "$match" || return 1
 }
 
 complete -o nosort -o filenames -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
