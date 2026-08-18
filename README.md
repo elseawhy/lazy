@@ -12,6 +12,7 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
 - **Continuous Background Pruning** — Dead paths and old history are automatically purged from the database via a background process every time an entry is added, keeping the database perfectly clean with virtually zero latency to your prompt.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
+- **Intelligent Flag Bypass** — Passing any standard editor flags (`-v`, `+42`, etc.) instantly safely downgrades the wrapper into a raw passthrough. No mangled flags, no accidental database tracking, and no broken arguments.
 - **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed.
 - **Configurable Blacklists** — Exclude specific paths from ever polluting your history using colon-separated Bash globs. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
 
@@ -60,6 +61,8 @@ Assuming you set `EDITOR=nvim` (swap `nvim` for `micro`, `emacs`, etc.), here is
 | `nvim /etc/hosts` | Yes | **No** | Detects lack of permissions, and securely opens using `sudo -e`. |
 | `nvim /etc/new/foo.txt`| No | **No** | Detects lack of parent permissions, and securely opens using `sudo nvim`. |
 | `nvim fstab ~/.bashrc` | Mixed | Mixed | Sequentially processes each file. Evaluates permissions individually to safely elevate (`sudo -e /etc/fstab`) without breaking local files (`nvim ~/.bashrc`). |
+| `nvim -c theme foo` | N/A | N/A | Detects editor flags. Bypasses fuzzy tracking and securely passes raw arguments straight to the editor. |
+| `nvim /etc/` | Yes (Dir) | **No** | Detects a directory. Skips `.lazyfile` tracking, but smartly elevates (`sudo nvim`) to safely open the protected folder browser. |
 
 ## Tunables
 
@@ -87,7 +90,6 @@ Files are only added to `~/.lazyfile` when opened through your smart editor wrap
 - **Don't** manually run `sudo nvim foo`. Your shell will completely bypass this script's intelligence, skip the frecency database, and break the automation. Just let the wrapper handle the elevation for you natively!
 
 ## Have yet to implement
-- Editor arguments support
 - Safe automatic directory creation
 
 ## License

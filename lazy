@@ -165,31 +165,27 @@ cd() {
 
 eval "
 ${_LAZY_EDITOR_NAME}() {
-    [[ \$# -eq 0 ]] && { command \${EDITOR} ; return ; }
-    local -a _lazy_editor_cmd=(\$EDITOR)
+    [[ \$# -eq 0 || \" \$*\" == *\" \"[-+]* ]] && { command \${EDITOR} \"\$@\"; return; }
+
+    local target
+    local -a exec_cmd
     for target in \"\$@\"; do
-		if [[ \"\$target\" != */* && ! -f \"\$target\" ]]; then
-			target=\"\$(_lazy_read \"\$filefile\" \"\$target\" || echo \"\$target\")\"
-		fi
+        exec_cmd=(\$EDITOR)
                
-		[[ \"\$target\" != /* ]] && target=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
+        if [[ \"\$target\" != */* && ! -e \"\$target\" ]]; then
+            local match=\"\$(_lazy_read \"\$filefile\" \"\$target\" 2>/dev/null)\"
+            [[ -n \"\$match\" ]] && target=\"\$match\"
+        fi
                
-		if ! _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$target\"; then
-			[[ -f \"\$target\" ]] && (_lazy_write \"\$filefile\" \"\$target\" &)
-		fi
-		
-		if [[ -e \"\$target\" ]]; then
-			if [[ -w \"\$target\" ]]; then
-				command \"\${_lazy_editor_cmd[@]}\" \"\$target\"
-			else
-				command sudo -e \"\$target\"
-			fi
-		else
-			if [[ -w \"\$(dirname \"\$target\")\" ]]; then
-				command \"\${_lazy_editor_cmd[@]}\" \"\$target\"
-			else
-				command sudo \"\${_lazy_editor_cmd[@]}\" \"\$target\"
-			fi
-		fi
+        if [[ -f \"\$target\" ]]; then
+            [[ \"\$target\" != /* ]] && target=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
+            _lazy_is_blacklisted \"\$_LAZY_FILE_BLACKLIST\" \"\$target\" || (_lazy_write \"\$filefile\" \"\$target\" &)
+            [[ ! -w \"\$target\" ]] && exec_cmd=(sudo -e)
+        else
+            local dname=\"\$(dirname \"\$target\" 2>/dev/null)\"
+            [[ -d \"\$dname\" && ! -w \"\$dname\" ]] && exec_cmd=(sudo \$EDITOR)
+        fi
+
+        command \"\${exec_cmd[@]}\" \"\$target\"
     done
 }"
