@@ -70,8 +70,8 @@ You can override these by exporting them before the `source` line
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `_LAZY_DIR_DATA` | `~/.lazydir` | directory datafile path |
-| `_LAZY_FILE_DATA` | `~/.lazyfile` | file datafile path |
+| `_LAZY_DIR_DB` | `~/.lazydir` | directory datafile path |
+| `_LAZY_FILE_DB` | `~/.lazyfile` | file datafile path |
 | `_LAZY_HALF_LIFE` | `85` | number of commands before a score halves |
 | `_LAZY_MAX_ENTRIES` | `1000` | maximum number of entries to track per file |
 | `_LAZY_DIR_BLACKLIST` | `!($HOME/*)` | colon-separated glob patterns to ignore for cd |
@@ -84,6 +84,8 @@ You can override these by exporting them before the `source` line
 Each line in a datafile is exactly two columns: `path|score`. Instead of wall-clock time, which breaks if you take a break from your computer, `lazy` uses an implicit **Event Clock**—time only moves forward when you execute a command. Every time you visit a path, the background writer continuously applies a radioactive **half-life decay** across the *entire* database (`score / (2 ^ (1 / HALF_LIFE))`), and grants your newly visited target a +1 bonus. *(The underlying exponential decay algorithms were heavily inspired by **[jghub/ze](https://github.com/jghub/ze)**).* Because this decay is mathematically constant, the background writer processes the database in a single ultra-fast stream without ever buffering it into memory. Moreover, because all scores are continuously pre-sorted, the read script (`cd foo`) never has to do any math or spawn sub-shells at all, resulting in true zero-latency jumps. The database is strictly capped at a maximum capacity (`1000` entries by default); whenever it exceeds this limit, the lowest-scoring entries are automatically pruned.
 
 Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
+
+> **Note:** `lazy` uses `perl` by default for the database updates to maximize speed. If you are on a minimal environment that doesn't have Perl installed, a fallback script (`lazy.awk`) is also provided in the repository.
 
 ## Don'ts
 
