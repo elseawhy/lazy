@@ -7,9 +7,9 @@
 
 shopt -s extglob
 
-readonly _LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
-readonly dirfile="$(realpath -m "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}" 2>/dev/null || echo "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}")"
-readonly filefile="$(realpath -m "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}" 2>/dev/null || echo "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}")"
+_LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
+dirfile="$(realpath -m "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}" 2>/dev/null || echo "${_LAZY_DIR_DATA:-$_LAZY_REAL_HOME/.lazydir}")"
+filefile="$(realpath -m "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}" 2>/dev/null || echo "${_LAZY_FILE_DATA:-$_LAZY_REAL_HOME/.lazyfile}")"
 
 [[ -d "$dirfile" ]] && { echo "ERROR: lazy's dir datafile ($dirfile) is a directory."; return 1; }
 [[ -d "$filefile" ]] && { echo "ERROR: lazy's file datafile ($filefile) is a directory."; return 1; }
@@ -20,7 +20,7 @@ _LAZY_EDITOR_NAME="${EDITOR%% *}"
 _LAZY_EDITOR_NAME="${_LAZY_EDITOR_NAME##*/}"
 _LAZY_DIR_BLACKLIST="${_LAZY_DIR_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
 _LAZY_FILE_BLACKLIST="${_LAZY_FILE_BLACKLIST:-!($_LAZY_REAL_HOME/*)}"
-readonly _LAZY_EDITOR_NAME _LAZY_DIR_BLACKLIST _LAZY_FILE_BLACKLIST
+
 
 lazy() {
     printf "lazy - frecency-based smart cd and editor launcher\n\n\
