@@ -35,6 +35,7 @@ TUNABLES (initialize these in .bashrc before sourcing lazy)\n\
   _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
   _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !(\$HOME/*))\n\
   _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !(\$HOME/*))\n\
+  _LAZY_DEBUG             set to 1 to allow manual execution of internal functions\n\
   EDITOR                  program used to open matched files (default: nano)\n\n\
 CURRENT STATS\n\
   %-24s%s\n\
@@ -59,6 +60,13 @@ _lazy_is_blacklisted() {
 }
 
 _lazy_write() {
+    if [[ "$_LAZY_DEBUG" != "1" && "${FUNCNAME[1]}" != "cd" && "${FUNCNAME[1]}" != "$_LAZY_EDITOR_NAME" ]]; then
+        echo "error: _lazy_write is an internal function and not meant to be used manually." >&2
+        return 1
+    fi
+    [[ -z "$1" || -z "$2" ]] && return 1
+    [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
+
     local tempfile="$1.$RANDOM" flag="-f"
     [[ "$1" == "$dirfile" ]] && flag="-d"
     
@@ -87,6 +95,10 @@ _lazy_write() {
 }
 
 _lazy_complete_func() {
+    if [[ -z "${COMP_LINE+x}" ]]; then
+        echo "error: _lazy_complete_func is an internal completion function." >&2
+        return 1
+    fi
     local target="$filefile"
     [[ "$1" == "cd" ]] && { (( COMP_CWORD > 1 )) && return 0; target="$dirfile"; }
 
@@ -120,8 +132,11 @@ _lazy_complete_func() {
 }
 
 _lazy_read() {
-    [[ -z "$2" ]] && return 1
-    [[ -f "$1" ]] || return 1
+    if [[ "$_LAZY_DEBUG" != "1" && "${FUNCNAME[1]}" != "cd" && "${FUNCNAME[1]}" != "$_LAZY_EDITOR_NAME" ]]; then
+        echo "error: _lazy_read is an internal function and not meant to be used manually." >&2
+        return 1
+    fi
+    [[ -z "$2" || ! -f "$1" ]] && return 1
 
     local raw_query="${*:2}"
     local query_pattern="${raw_query// /*}"

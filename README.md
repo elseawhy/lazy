@@ -76,6 +76,7 @@ You can override these by exporting them before the `source` line
 | `_LAZY_MAX_ENTRIES` | `1000` | maximum number of entries to track per file |
 | `_LAZY_DIR_BLACKLIST` | `!($HOME/*)` | colon-separated glob patterns to ignore for cd |
 | `_LAZY_FILE_BLACKLIST`| `!($HOME/*)` | colon-separated glob patterns to ignore for editor |
+| `_LAZY_DEBUG` | (unset) | set to 1 to allow manual execution of internal functions |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
 ## How it works
