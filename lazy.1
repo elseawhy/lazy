@@ -1,0 +1,79 @@
+.TH LAZY 1 "August 2026" lazy "User Commands"
+.SH NAME
+lazy \- frecency-based smart cd and editor launcher
+.SH SYNOPSIS
+.B lazy
+.br
+.B cd
+.RI [ directory-fragment ]
+.br
+.B $EDITOR
+.RI [ file-fragment ]
+.SH AVAILABILITY
+bash
+.SH DESCRIPTION
+\fBlazy\fR is a heavily stripped-down, zero-bloat fork of \fBz\fR. It tracks your most-used directories and files by 'frecency' (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path.
+
+This fork extends the exact same concept to \fBfiles\fR, but removes all the clunky manual CLI commands. It is designed to be a completely silent, drop-in background utility that makes your \fBcd\fR and your \fB$EDITOR\fR context-aware and highly efficient.
+
+When you type \fBcd foo\fR, and \fBfoo\fR is not in the current directory, it fuzzy-searches its database and jumps to the best match.
+
+When you type \fB$EDITOR foo\fR (e.g., \fBnvim foo\fR), it fuzzy-searches its file database. It intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes \fBsudo\fR or \fBsudo -e\fR instead.
+
+If you pass any standard editor flags (e.g., \fB-v\fR, \fB+42\fR), the wrapper instantly downgrades into a raw passthrough, bypassing the fuzzy database and safely passing arguments directly to the editor.
+.SH OPTIONS
+\fBlazy\fR does not use standard CLI options. It is invoked via wrappers around \fBcd\fR and your configured \fBEDITOR\fR. Running \fBlazy\fR with no arguments prints the current configuration and stats.
+.SH ENVIRONMENT
+You can override these by exporting them before sourcing \fBlazy\fR in your \fB.bashrc\fR:
+.TP
+.B _LAZY_DIR_DB
+directory datafile path (default: ~/.lazydir)
+.TP
+.B _LAZY_FILE_DB
+file datafile path (default: ~/.lazyfile)
+.TP
+.B _LAZY_HALF_LIFE
+number of commands before a score halves (default: 85)
+.TP
+.B _LAZY_MAX_ENTRIES
+maximum number of entries to track per file (default: 1000)
+.TP
+.B _LAZY_DIR_BLACKLIST
+colon-separated glob patterns to ignore for cd (default: !($HOME/*))
+.TP
+.B _LAZY_FILE_BLACKLIST
+colon-separated glob patterns to ignore for editor (default: !($HOME/*))
+.TP
+.B _LAZY_DEBUG
+set to 1 to allow manual execution of internal functions (unset by default)
+.TP
+.B EDITOR
+program used to open matched files (default: $VISUAL, else nano)
+.SH FILES
+.TP
+.I ~/.lazydir
+Default data file for directory frecency.
+.TP
+.I ~/.lazyfile
+Default data file for file frecency.
+.SH EXAMPLES
+.TP
+.B cd foo
+Safely enters local directory 'foo' if it exists, otherwise cd to most frecent dir matching 'foo'.
+.TP
+.B nvim foo
+Fuzzy-searches ~/.lazyfile for 'foo', resolves the absolute path, and opens it.
+.TP
+.B nvim /etc/hosts
+Detects lack of permissions, and securely opens using \fBsudo -e\fR.
+.TP
+.B nvim +42 foo.txt
+Bypasses tracking and passes arguments directly to the editor.
+.SH AUTHOR
+Original \fBz\fR core frecency concept by rupa deadwyler.
+.br
+Exponential decay and event-clock architecture by Joerg van den Hoff (jghub).
+.br
+File tracking, smart wrappers & auto-escalation by elseawhy.
+.SH SEE ALSO
+bash(1), sudo(8)
