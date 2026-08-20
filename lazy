@@ -30,17 +30,17 @@ USAGE\n\
 TUNABLES (initialize these in .bashrc before sourcing lazy)\n\
   _LAZY_DIR_DB            directory datafile path (default: ~/.lazydir)\n\
   _LAZY_FILE_DB           file datafile path (default: ~/.lazyfile)\n\
-  _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
-  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
   _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !(\$HOME/*))\n\
   _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !(\$HOME/*))\n\
+  _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
+  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
   _LAZY_DEBUG             set to 1 to allow manual execution of internal functions\n\
   EDITOR                  program used to open matched files (default: nano)\n\n\
 CURRENT STATS\n\
   %-24s%s\n\
   %-24s%s\n\
   %-24s%s\n" \
-        "lazy help" "show this help" \
+        "lazy" "show this help" \
         "cd foo" "falls back to smart directory jump" \
         "${_LAZY_EDITOR} foo" "falls back to smart file open (auto-escalates if outside \$HOME)" \
         "Half-Life" "${_LAZY_HALF_LIFE:-85} commands" \
