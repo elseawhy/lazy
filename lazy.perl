@@ -30,22 +30,22 @@ USAGE\n\
 TUNABLES (initialize these in .bashrc before sourcing lazy)\n\
   _LAZY_DIR_DB            directory datafile path (default: ~/.lazydir)\n\
   _LAZY_FILE_DB           file datafile path (default: ~/.lazyfile)\n\
-  _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
-  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
   _LAZY_DIR_BLACKLIST     colon-separated glob patterns to ignore for cd (default: !(\$HOME/*))\n\
   _LAZY_FILE_BLACKLIST    colon-separated glob patterns to ignore for editor (default: !(\$HOME/*))\n\
+  _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
+  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
   _LAZY_DEBUG             set to 1 to allow manual execution of internal functions\n\
   EDITOR                  program used to open matched files (default: nano)\n\n\
 CURRENT STATS\n\
   %-24s%s\n\
   %-24s%s\n\
   %-24s%s\n" \
-        "lazy help" "show this help" \
+        "lazy" "show this help" \
         "cd foo" "falls back to smart directory jump" \
         "${_LAZY_EDITOR} foo" "falls back to smart file open (auto-escalates if outside \$HOME)" \
         "Half-Life" "${_LAZY_HALF_LIFE:-85} commands" \
         "Maximum Entries" "${_LAZY_MAX_ENTRIES:-1000}" \
-        "Maximum possible score" "$(awk -v H="${_LAZY_HALF_LIFE:-85}" 'BEGIN { printf "%.1f", 1 / (1 - (0.5 ^ (1 / H))) }')"
+        "Maximum possible score" "$(perl -e 'printf "%.1f", 1 / (1 - (0.5 ** (1 / shift)))' "${_LAZY_HALF_LIFE:-85}")"
 }
 
 _lazy_is_blacklisted() {
@@ -64,31 +64,29 @@ _lazy_write() {
         return 1
     fi
     [[ -z "$1" || -z "$2" ]] && return 1
-    [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
-
-    local tempfile="$1.$RANDOM" flag="-f"
+    local flag="-f"
     [[ "$1" == "$_LAZY_DIR_DB" ]] && flag="-d"
     
-    awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-85}" '
-        BEGIN { OFS="|"; OFMT="%.17g"; CONVFMT="%.17g"; decay = 2 ^ (1 / H) }
-        {
-            if ($1 == target) {
-                found = 1
-                print $1, ($2 / decay) + 1
-            } else {
-                print $1, $2 / decay
-            }
+    perl -e '
+        my ($target, $half_life, $flag, $max_entries, $db_file) = @ARGV;
+        my %entries;
+        my $decay = 2**(1/$half_life);
+        if (open my $in, "<", $db_file) {
+        	while(<$in>) {
+        		chomp;
+        		my ($p,$s)=split/\|/,$_,2;
+        		$entries{$p}=$s/$decay if $flag eq "-d" ? -d $p : -f $p 
+        	}
         }
-        END { if (!found) print target, 1 }
-    ' "$1" 2>/dev/null | while IFS="|" read -r path rest; do
-        [ $flag "$path" ] && echo "$path|$rest"
-    done | LC_ALL=C sort -t'|' -k2,2gr -k1,1 | head -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile"
-
-    if [[ -s "$tempfile" ]]; then
-        \env mv -f "$tempfile" "$1"
-    else
-        \env rm -f "$tempfile"
-    fi
+        $entries{$target}++ if $flag eq "-d" ? -d $target : -f $target;
+        if (open my $out, ">", "$db_file.$$") {
+            my @sorted = sort { $entries{$b} <=> $entries{$a} || $a cmp $b } keys %entries;
+            splice(@sorted, $max_entries);
+            printf $out "%s|%.17g\n", $_, $entries{$_} for @sorted;
+            close $out;
+            rename "$db_file.$$", $db_file or unlink "$db_file.$$";
+        }
+    ' "$2" "${_LAZY_HALF_LIFE:-85}" "$flag" "${_LAZY_MAX_ENTRIES:-1000}" "$1"
 }
 
 _lazy_complete_func() {

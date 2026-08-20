@@ -85,8 +85,6 @@ Each line in a datafile is exactly two columns: `path|score`. Instead of wall-cl
 
 Files are only added to `~/.lazyfile` when opened through your smart editor wrapper. Files opened by other means won't be tracked.
 
-> **Note:** `lazy` uses `perl` by default for the database updates to maximize speed. If you are on a minimal environment that doesn't have Perl installed, a fallback script (`lazy.awk`) is also provided in the repository.
-
 ## Don'ts
 
 - **Don't** source `lazy` in root's `.bashrc`. Running as root means tracking root's own datafiles and dealing with ownership headaches. 
