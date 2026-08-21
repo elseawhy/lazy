@@ -44,7 +44,7 @@ CURRENT STATS\n\
 }
 
 _lazy_write() {
-    [[ -z "$1" || -z "$2" ]] && return 1
+    [[ "$1" != "$_LAZY_DIR_DB" && "$1" != "$_LAZY_FILE_DB" || -z "$2" ]] && return 1
     [[ "$2" != "$_LAZY_REAL_HOME/"* ]] && return 0
 
     local exclude
@@ -54,7 +54,7 @@ _lazy_write() {
 
     [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
 
-    local tempfile="$1.$$" flag="-f"
+    local tempfile="$(mktemp "${1}.XXXXXX")" flag="-f"
     [[ "$1" == "$_LAZY_DIR_DB" ]] && flag="-d"
     
     while IFS="|" read -r path rest; do
@@ -132,9 +132,7 @@ if [[ -n "${BASH_VERSION-}" ]]; then
             fi
         done < <( if [[ "$target" == "$_LAZY_DIR_DB" ]]; then compgen -d -- "$2"; else compgen -f -- "$2"; fi )
     }
-
     complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
-    complete -o nosort -o bashdefault -o default -F _lazy_complete_func "$_LAZY_EDITOR"
 fi
 
 cd() {
@@ -153,29 +151,33 @@ cd() {
     fi
 }
 
-eval "
-${_LAZY_EDITOR}() {
-    [[ \$# -eq 0 || \" \$*\" == *\" \"[-+]* ]] && { command \${EDITOR} \"\$@\"; return; }
+if [[ "$_LAZY_EDITOR" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    eval "${_LAZY_EDITOR}() {
+        [[ \$# -eq 0 || \" \$*\" == *\" \"[-+]* ]] && { command \${EDITOR} \"\$@\"; return; }
 
-    local target
-    local -a exec_cmd
-    for target in \"\$@\"; do
-        exec_cmd=(\$EDITOR)
-               
-        if [[ \"\$target\" != */* && ! -e \"\$target\" ]]; then
-            local match=\"\$(_lazy_read \"\$_LAZY_FILE_DB\" \"\$target\" 2>/dev/null)\"
-            [[ -n \"\$match\" ]] && target=\"\$match\"
-        fi
-               
-        if [[ -f \"\$target\" ]]; then
-            [[ \"\$target\" != /* ]] && target=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
-            (_lazy_write \"\$_LAZY_FILE_DB\" \"\$target\" \${_LAZY_FILE_BLACKLIST[@]+\"\${_LAZY_FILE_BLACKLIST[@]}\"} &)
-            [[ ! -w \"\$target\" ]] && exec_cmd=(sudo -e)
-        else
-            local dname=\"\$(dirname \"\$target\" 2>/dev/null)\"
-            [[ -d \"\$dname\" && ! -w \"\$dname\" ]] && exec_cmd=(sudo \$EDITOR)
-        fi
+        local target
+        local -a exec_cmd
+        for target in \"\$@\"; do
+            exec_cmd=(\$EDITOR)
+                   
+            if [[ \"\$target\" != */* && ! -e \"\$target\" ]]; then
+                local match=\"\$(_lazy_read \"\$_LAZY_FILE_DB\" \"\$target\" 2>/dev/null)\"
+                [[ -n \"\$match\" ]] && target=\"\$match\"
+            fi
+                   
+            if [[ -f \"\$target\" ]]; then
+                [[ \"\$target\" != /* ]] && target=\"\$(realpath -m \"\$target\" 2>/dev/null || echo \"\$target\")\"
+                (_lazy_write \"\$_LAZY_FILE_DB\" \"\$target\" \${_LAZY_FILE_BLACKLIST[@]+\"\${_LAZY_FILE_BLACKLIST[@]}\"} &)
+                [[ ! -w \"\$target\" ]] && exec_cmd=(sudo -e)
+            else
+                local dname=\"\$(dirname \"\$target\" 2>/dev/null)\"
+                [[ -d \"\$dname\" && ! -w \"\$dname\" ]] && exec_cmd=(sudo \$EDITOR)
+            fi
 
-        command \"\${exec_cmd[@]}\" \"\$target\"
-    done
-}"
+            command \"\${exec_cmd[@]}\" \"\$target\"
+        done
+    }"
+    [[ -n "${BASH_VERSION-}" ]] && complete -o nosort -o bashdefault -o default -F _lazy_complete_func "$_LAZY_EDITOR"
+else
+    echo "lazy: Invalid EDITOR ('$EDITOR')"
+fi
