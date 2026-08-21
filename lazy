@@ -47,9 +47,9 @@ _lazy_write() {
     [[ "$1" != "$_LAZY_DIR_DB" && "$1" != "$_LAZY_FILE_DB" || -z "$2" ]] && return 1
     [[ "$2" != "$_LAZY_REAL_HOME/"* ]] && return 0
 
-    local exclude
-    for exclude in "${@:3}"; do
-        [[ -n "$exclude" && "$2" == "$exclude"* ]] && return 0
+    local blacklist
+    for blacklist in "${@:3}"; do
+        [[ -n "$blacklist" && "$2" == "$blacklist"* ]] && return 0
     done
 
     [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
