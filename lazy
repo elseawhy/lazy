@@ -133,8 +133,8 @@ if [[ -n "${BASH_VERSION-}" ]]; then
         done < <( if [[ "$target" == "$_LAZY_DIR_DB" ]]; then compgen -d -- "$2"; else compgen -f -- "$2"; fi )
     }
 
-    complete -o nosort -o filenames -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
-    complete -o nosort -o filenames -o bashdefault -o default -F _lazy_complete_func "$_LAZY_EDITOR"
+    complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
+    complete -o nosort -o bashdefault -o default -F _lazy_complete_func "$_LAZY_EDITOR"
 fi
 
 cd() {
