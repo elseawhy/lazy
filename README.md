@@ -16,7 +16,7 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed.
 - **Configurable Blacklists** — Exclude specific paths from ever polluting your history using standard Bash arrays. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
 
-> All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa/z](https://github.com/rupa/z), along with [jghub/ze](https://github.com/jghub/ze) for the event clock and exponential decay algorithms.
+  > All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa/z](https://github.com/rupa/z), along with [jghub/ze](https://github.com/jghub/ze) for the event clock and exponential decay algorithms.
 
 ## Who this script is for :)
 
