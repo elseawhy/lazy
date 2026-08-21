@@ -1,8 +1,8 @@
 # lazy
 
-`lazy` is a heavily stripped-down, zero-bloat fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path. Built to match my workflow, currently only supports Bash.
+`lazy` is a heavily stripped-down, zero-bloat fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path. Built to match my workflow, it natively supports Bash and Zsh out of the box (note: Tab Completion is currently only supported in Bash, but all other smart jumping and wrapping features work universally across both shells).
 
-Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgrd/flyline).
+Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgrd/flyline) (Bash only).
 
 This fork extends the exact same concept to **files**, but removes all the clunky manual CLI commands. It is designed to be a completely silent, drop-in background utility that makes your `cd` and your `$EDITOR` context-aware and highly efficient.
 
@@ -14,7 +14,7 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
 - **Intelligent Flag Bypass** — Passing any standard editor flags (`-v`, `+42`, etc.) instantly safely downgrades the wrapper into a raw passthrough. No mangled flags, no accidental database tracking, and no broken arguments.
 - **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed.
-- **Configurable Blacklists** — Exclude specific paths from ever polluting your history using colon-separated Bash globs. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
+- **Configurable Blacklists** — Exclude specific paths from ever polluting your history using standard Bash arrays. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
 
 All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa/z](https://github.com/rupa/z), along with [jghub/ze](https://github.com/jghub/ze) for the event clock and exponential decay algorithms.
 
@@ -29,14 +29,16 @@ This tool is built for users who...
 
 ## Install
 
-Put this in your `.bashrc`
+Put this in your `.bashrc` or `.zshrc`:
 
-    # 1. Define your editor: nvim, emacs, micro, nano, etc.
-    # Don't export! The script does it for you.
-    EDITOR=nvim
-    
-    # 2. Source the script
-    . /path/to/lazy
+```bash
+# 1. Define your editor: nvim, emacs, micro, nano, etc.
+# Don't export! The script does it for you.
+EDITOR=nvim
+
+# 2. Source the script
+. /path/to/lazy
+```
 
 *(Quick note — If you completely forget to set your editor variables, the script will gracefully default to `nano`.)*
 
@@ -74,9 +76,8 @@ You can override these by exporting them before the `source` line
 | `_LAZY_FILE_DB` | `~/.lazyfile` | file datafile path |
 | `_LAZY_HALF_LIFE` | `85` | number of commands before a score halves |
 | `_LAZY_MAX_ENTRIES` | `1000` | maximum number of entries to track per file |
-| `_LAZY_DIR_BLACKLIST` | `!($HOME/*)` | colon-separated glob patterns to ignore for cd |
-| `_LAZY_FILE_BLACKLIST`| `!($HOME/*)` | colon-separated glob patterns to ignore for editor |
-| `_LAZY_DEBUG` | (unset) | set to 1 to allow manual execution of internal functions |
+| `_LAZY_DIR_BLACKLIST` | `(empty)` | array of path prefixes to ignore for cd |
+| `_LAZY_FILE_BLACKLIST`| `(empty)` | array of path prefixes to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
 ## How it works
