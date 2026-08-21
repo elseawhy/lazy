@@ -25,7 +25,9 @@ This tool is built for users who...
 - **Want `zoxide` for files** — You love the frictionless, frecency-based jumping of tools like `z` or `zoxide` for directories, and you want that exact same magic for opening your most-used files.
 - **Crave workflow QoL** — You want your environment to be smart enough to find the file you need without forcing you to memorize or type out tedious absolute and relative paths.
 - **Are tired of `sudo $EDITOR`** — You hate opening a system configuration file, getting a "Permission denied" error on save, and having to back out just to type `sudo !!`. 
-- **Prioritize strict security** — You want a robust, secure way to edit system root files. This script automatically invokes `sudo -e` or `sudo` for anything you lack write access to, so you never have to manually type `sudo`.
+- **Prioritize strict security** — You want a robust, secure way to edit system root files. This script automatically invokes `sudo -e` (sudoedit) for anything you lack write access to, safely dropping root privileges before launching your editor so you never have to manually type `sudo`.
+  
+  > **Important Note on `sudo`:** Make sure you are using the original C-based [sudo](https://github.com/sudo-project/sudo) package. The Rust rewrite (`sudo-rs`) currently has a weird quirk with `sudo -e` where if you open a new file and leave it completely blank, it blindly copies that empty file back to the root location anyway. This script relies on the original `sudo`, which intelligently aborts the operation if no changes are made!
 
 ## Install
 
@@ -61,10 +63,10 @@ Assuming you set `EDITOR=nvim` (swap `nvim` for `micro`, `emacs`, etc.), here is
 | `nvim ./foo.txt` | Yes/No | **Yes** | Bypasses fuzzy search. Opens the file normally as your user. |
 | `nvim ~/new/foo.txt` | No | **Yes** | Bypasses fuzzy search. Opens the file normally as your user. |
 | `nvim /etc/hosts` | Yes | **No** | Detects lack of permissions, and securely opens using `sudo -e`. |
-| `nvim /etc/new/foo.txt`| No | **No** | Detects lack of parent permissions, and securely opens using `sudo nvim`. |
+| `nvim /etc/new/foo.txt`| No | **No** | Detects lack of parent permissions, and securely opens using `sudo -e`. |
 | `nvim fstab ~/.bashrc` | Mixed | Mixed | Sequentially processes each file. Evaluates permissions individually to safely elevate (`sudo -e /etc/fstab`) without breaking local files (`nvim ~/.bashrc`). |
 | `nvim -c theme foo` | N/A | N/A | Detects editor flags. Bypasses fuzzy tracking and securely passes raw arguments straight to the editor. |
-| `nvim /etc/` | Yes (Dir) | **No** | Detects a directory. Skips `.lazyfile` tracking, but smartly elevates (`sudo nvim`) to safely open the protected folder browser. |
+| `nvim /etc/` | Yes (Dir) | **No** | Detects a directory. Skips `.lazyfile` tracking, but smartly elevates (`sudo -e`) to safely open the protected folder browser. |
 
 ## Tunables
 
