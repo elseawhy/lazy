@@ -16,6 +16,7 @@ export EDITOR="${EDITOR:-${VISUAL:-nano}}"
 export VISUAL="$EDITOR"
 _LAZY_EDITOR="${EDITOR%% *}"
 _LAZY_EDITOR="${_LAZY_EDITOR##*/}"
+alias "$_LAZY_EDITOR"='_lazy_editor_wrapper'
 
 lazy() {
     printf "lazy - frecency-based smart cd and editor launcher\n\n\
@@ -136,19 +137,17 @@ cd() {
     local old_pwd="$(command pwd -P 2>/dev/null)"
     if [[ $# -eq 0 ]]; then
         builtin cd || return
-    elif [[ "$1" == "-" || -d "$*" ]]; then
-        builtin cd "$*" || return
     else
-        builtin cd "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")" || return
+        [[ "$1" != "-" && ! -d "$*" ]] && set -- "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")"
+        builtin cd "$*" || return
     fi
     local new_pwd="$(command pwd -P 2>/dev/null)"
 
-    [[ "$-" == *i* ]] && [[ "$old_pwd" != "$new_pwd" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$new_pwd" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
+    [[ "$-" == *i* && "$old_pwd" != "$new_pwd" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$new_pwd" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
 }
 
 _lazy_editor_wrapper() {
     [[ $# -eq 0 || " $*" == *" "[-+]* ]] && { command ${EDITOR} "$@"; return; }
-
     local target
     local -a exec_cmd
     for target in "$@"; do
@@ -170,8 +169,6 @@ _lazy_editor_wrapper() {
         	}
             [[ ! -w "$dname" ]] && exec_cmd=(sudo -e)
         fi
-
         command "${exec_cmd[@]}" "$target"
     done
 }
-alias "$_LAZY_EDITOR"='_lazy_editor_wrapper'
