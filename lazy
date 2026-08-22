@@ -44,22 +44,20 @@ CURRENT STATS\n\
 }
 
 _lazy_write() {
-    [[ "$1" != "$_LAZY_DIR_DB" && "$1" != "$_LAZY_FILE_DB" || -z "$2" ]] && return 1
-    [[ "$2" != "$_LAZY_REAL_HOME/"* ]] && return 0
+    [[ ! "$1" =~ ^($_LAZY_DIR_DB|$_LAZY_FILE_DB)$ || ! "$2" =~ ^-(d|f)$ || -z "$3" ]] && return 1
+    [[ "$3" != "$_LAZY_REAL_HOME/"* ]] && return 0
 
     local blacklist
-    for blacklist in "${@:3}"; do
-        [[ -n "$blacklist" && "$2" == "$blacklist"* ]] && return 0
+    for blacklist in "${@:4}"; do
+        [[ -n "$blacklist" && "$3" == "$blacklist"* ]] && return 0
     done
 
     [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
-
-    local tempfile="$(mktemp "${1}.XXXXXX")" flag="-f"
-    [[ "$1" == "$_LAZY_DIR_DB" ]] && flag="-d"
+    local tempfile="$(mktemp "${1}.XXXXXX")"
     
     while IFS="|" read -r path rest; do
-        [ $flag "$path" ] && echo "$path|$rest"
-    done < "$1" 2>/dev/null | awk -F"|" -v target="$2" -v H="${_LAZY_HALF_LIFE:-85}" '
+        [ $2 "$path" ] && echo "$path|$rest"
+    done < "$1" 2>/dev/null | awk -F"|" -v target="$3" -v H="${_LAZY_HALF_LIFE:-85}" '
         BEGIN { OFS="|"; OFMT="%.17g"; CONVFMT="%.17g"; decay = 2 ^ (1 / H) }
         {
             if ($1 == target) {
@@ -145,7 +143,7 @@ cd() {
     fi
     local new_pwd="$(command pwd -P 2>/dev/null)"
 
-    [[ "$-" == *i* ]] && [[ "$old_pwd" != "$new_pwd" ]] && (_lazy_write "$_LAZY_DIR_DB" "$new_pwd" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
+    [[ "$-" == *i* ]] && [[ "$old_pwd" != "$new_pwd" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$new_pwd" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
 }
 
 _lazy_editor_wrapper() {
@@ -162,7 +160,7 @@ _lazy_editor_wrapper() {
         }
         if [[ -f "$target" ]]; then
             [[ "$target" != /* ]] && target="$(realpath -m "$target" 2>/dev/null || echo "$target")"
-            (_lazy_write "$_LAZY_FILE_DB" "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
+            (_lazy_write "$_LAZY_FILE_DB" -f "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
             [[ ! -w "$target" ]] && exec_cmd=(sudo -e)
         else
         	local dname="$(dirname "$target" 2>/dev/null)"
