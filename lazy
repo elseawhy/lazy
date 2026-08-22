@@ -175,7 +175,8 @@ _lazy_editor_wrapper() {
             (_lazy_write "$_LAZY_FILE_DB" -f "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
             [[ ! -w "$target" ]] && exec_cmd=(sudo -e)
         else
-        	local dname="$(dirname "$target" 2>/dev/null)"
+        	local dname="${target%/*}"
+        	[[ "$dname" == "$target" ]] && dname="."
         	[[ ! -d "$dname" ]] && {
         		echo "lazy: directory '$dname' does not exist for target '$target'" >&2
         		continue
