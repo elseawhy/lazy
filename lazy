@@ -69,7 +69,11 @@ _lazy_write() {
         END { if (!found) print target, 1 }
     ' | LC_ALL=C sort -t'|' -k2,2gr -k1,1 | head -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile"
 
-    [[ -s "$tempfile" ]] && \env mv -f "$tempfile" "$1" || \env rm -f "$tempfile"
+    if [[ -s "$tempfile" ]]; then
+    	\env mv -f "$tempfile" "$1"
+	else
+    	\env rm -f "$tempfile"
+	fi
 }
 
 _lazy_read() {
@@ -98,36 +102,43 @@ _lazy_read() {
 [[ -n "${BASH_VERSION-}" ]] && {
     _lazy_complete_func() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
-        local target="$_LAZY_FILE_DB"
-        [[ "$1" == "cd" ]] && { (( COMP_CWORD > 1 )) && return 0; target="$_LAZY_DIR_DB"; }
-    
+        
+        local target="$_LAZY_FILE_DB" comp_opt="-f" path abs_path rest
+        [[ "$1" == "cd" ]] && {
+        	(( COMP_CWORD > 1 )) && return 0
+        	target="$_LAZY_DIR_DB"
+        	comp_opt="-d"
+        }
+        
         COMPREPLY=()
-        local path abs_path
         local -A seen_paths
         
-        [[ -s "$target" ]] && [[ "$2" != */* ]] && {
+        [[ -s "$target" && "$2" != */* ]] && {
             local pattern="${2// /*}" local_nocase=0
-            [[ "$pattern" == "${pattern,,}" ]] && { shopt -q nocasematch || { shopt -s nocasematch; local_nocase=1; }; }
-    
+            [[ "$pattern" == "${pattern,,}" ]] && { 
+            	shopt -q nocasematch || {
+            		shopt -s nocasematch
+            		local_nocase=1
+            	}
+            }
             while IFS="|" read -r path rest; do
-                [[ -z "$path" ]] && continue
-                [[ "$path" == *"$pattern"* ]] && {
+                [[ -n "$path" && "$path" == *"$pattern"* ]] && {
                     COMPREPLY+=("${path/#$_LAZY_REAL_HOME/\~}")
                     seen_paths["$path"]=1
                 }
             done < "$target"
-            
             [[ $local_nocase -eq 1 ]] && shopt -u nocasematch
         }
         while IFS= read -r path; do
-            [[ -z "$path" ]] && continue
-            abs_path="$path"
-            [[ "$path" != /* ]] && abs_path="$PWD/$path"
-            [[ -z "${seen_paths["$abs_path"]}" ]] && {
-                COMPREPLY+=("$path")
-                seen_paths["$abs_path"]=1
+            [[ -n "$path" ]] && {
+            	abs_path="$path"
+            	[[ "$path" != /* ]] && abs_path="$PWD/$path"
+            	[[ ! -v seen_paths["$abs_path"] ]] && {
+                	COMPREPLY+=("$path")
+                	seen_paths["$abs_path"]=1
+            	}
             }
-        done < <( if [[ "$target" == "$_LAZY_DIR_DB" ]]; then compgen -d -- "$2"; else compgen -f -- "$2"; fi )
+        done < <(compgen "$comp_opt" -- "$2")
     }
     complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
     complete -o nosort -o bashdefault -o default -F _lazy_complete_func _lazy_editor_wrapper
@@ -148,8 +159,10 @@ cd() {
 
 _lazy_editor_wrapper() {
     [[ $# -eq 0 || " $*" == *" "[-+]* ]] && { command ${EDITOR} "$@"; return; }
+    
     local target
     local -a exec_cmd
+    
     for target in "$@"; do
         exec_cmd=($EDITOR)
         
