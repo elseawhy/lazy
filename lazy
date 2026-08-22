@@ -94,7 +94,7 @@ _lazy_read() {
     ' "$1"
 }
 
-if [[ -n "${BASH_VERSION-}" ]]; then
+[[ -n "${BASH_VERSION-}" ]] && {
     _lazy_complete_func() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
         local target="$_LAZY_FILE_DB"
@@ -130,7 +130,7 @@ if [[ -n "${BASH_VERSION-}" ]]; then
     }
     complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
     complete -o nosort -o bashdefault -o default -F _lazy_complete_func _lazy_editor_wrapper
-fi
+}
 
 cd() {
     local old_pwd="$(command pwd -P 2>/dev/null)"
@@ -164,7 +164,7 @@ _lazy_editor_wrapper() {
             [[ ! -w "$target" ]] && exec_cmd=(sudo -e)
         else
         	local dname="$(dirname "$target" 2>/dev/null)"
-        	[[ ! -d "dname" ]] && {
+        	[[ ! -d "$dname" ]] && {
         		echo "lazy: directory '$dname' does not exist for target '$target'" >&2
         		continue
         	}
