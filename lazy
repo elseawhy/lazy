@@ -102,7 +102,7 @@ _lazy_read() {
     _lazy_complete_func() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
         
-        local target="$_LAZY_FILE_DB" comp_opt="-f" path abs_path rest
+        local target="$_LAZY_FILE_DB" comp_opt="-f" path rest
         [[ "$1" == "_lazy_cd" ]] && {
         	(( COMP_CWORD > 1 )) && return 0
         	target="$_LAZY_DIR_DB"
@@ -130,11 +130,9 @@ _lazy_read() {
         }
         while IFS= read -r path; do
             [[ -n "$path" ]] && {
-            	abs_path="$path"
-            	[[ "$path" != /* ]] && abs_path="$PWD/$path"
-            	[[ ! -v seen_paths["$abs_path"] ]] && {
+            	[[ ! -v seen_paths["$PWD/$path"] ]] && {
                 	COMPREPLY+=("$path")
-                	seen_paths["$abs_path"]=1
+                	seen_paths["$PWD/$path"]=1
             	}
             }
         done < <(compgen "$comp_opt" -- "$2")
