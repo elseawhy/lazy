@@ -129,11 +129,9 @@ _lazy_read() {
             [[ $local_nocase -eq 1 ]] && shopt -u nocasematch
         }
         while IFS= read -r path; do
-            [[ -n "$path" ]] && {
-            	[[ ! -v seen_paths["$PWD/$path"] ]] && {
-                	COMPREPLY+=("$path")
-                	seen_paths["$PWD/$path"]=1
-            	}
+            [[ -n "$path" && ! -v seen_paths["$PWD/$path"] ]] && {
+                COMPREPLY+=("$path")
+                seen_paths["$PWD/$path"]=1
             }
         done < <(compgen "$comp_opt" -- "$2")
     }
