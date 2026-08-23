@@ -16,7 +16,8 @@ export EDITOR="${EDITOR:-${VISUAL:-nano}}"
 export VISUAL="$EDITOR"
 _LAZY_EDITOR="${EDITOR%% *}"
 _LAZY_EDITOR="${_LAZY_EDITOR##*/}"
-alias "$_LAZY_EDITOR"='_lazy_editor_wrapper'
+alias "$_LAZY_EDITOR"='_lazy_editor'
+alias cd='_lazy_cd'
 
 lazy() {
     printf "lazy - frecency-based smart cd and editor launcher\n\n\
@@ -56,7 +57,7 @@ _lazy_write() {
     [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
     local tempfile="$(mktemp "${1}.XXXXXX")"
     
-    while IFS="|" read -r path rest; do
+    if while IFS="|" read -r path rest; do
         [ $2 "$path" ] && echo "$path|$rest"
     done < "$1" 2>/dev/null | awk -F"|" -v target="$3" -v H="${_LAZY_HALF_LIFE:-85}" '
         BEGIN { OFS="|"; OFMT="%.17g"; CONVFMT="%.17g"; decay = 2 ^ (1 / H) }
@@ -67,9 +68,7 @@ _lazy_write() {
             } else print $1, $2 / decay
         }
         END { if (!found) print target, 1 }
-    ' | LC_ALL=C sort -t'|' -k2,2gr -k1,1 | head -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile"
-
-    if [[ -s "$tempfile" ]]; then
+    ' | LC_ALL=C sort -t'|' -k2,2gr -k1,1 | head -n "${_LAZY_MAX_ENTRIES:-1000}" > "$tempfile" && [[ -s "$tempfile" ]]; then
     	\env mv -f "$tempfile" "$1"
 	else
     	\env rm -f "$tempfile"
@@ -104,7 +103,7 @@ _lazy_read() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
         
         local target="$_LAZY_FILE_DB" comp_opt="-f" path abs_path rest
-        [[ "$1" == "cd" ]] && {
+        [[ "$1" == "_lazy_cd" ]] && {
         	(( COMP_CWORD > 1 )) && return 0
         	target="$_LAZY_DIR_DB"
         	comp_opt="-d"
@@ -140,24 +139,22 @@ _lazy_read() {
             }
         done < <(compgen "$comp_opt" -- "$2")
     }
-    complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func cd
-    complete -o nosort -o bashdefault -o default -F _lazy_complete_func _lazy_editor_wrapper
+    complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func _lazy_cd
+    complete -o nosort -o bashdefault -o default -F _lazy_complete_func _lazy_editor
 }
 
-cd() {
-    local old_pwd="$(command pwd -P 2>/dev/null)"
+_lazy_cd() {
+    local old_pwd="$PWD"
     if [[ $# -eq 0 ]]; then
         builtin cd || return
     else
         [[ "$1" != "-" && ! -d "$*" ]] && set -- "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")"
         builtin cd "$*" || return
     fi
-    local new_pwd="$(command pwd -P 2>/dev/null)"
-
-    [[ "$-" == *i* && "$old_pwd" != "$new_pwd" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$new_pwd" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
+    [[ "$old_pwd" != "$PWD" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$PWD" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
 }
 
-_lazy_editor_wrapper() {
+_lazy_editor() {
     [[ $# -eq 0 || " $*" == *" "[-+]* ]] && { command ${EDITOR} "$@"; return; }
     
     local target
