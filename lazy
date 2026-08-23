@@ -141,28 +141,19 @@ _lazy_read() {
 
 _lazy_cd() {
     local old_pwd="$PWD"
-    if [[ $# -eq 0 ]]; then
-        builtin cd || return
-    else
-        [[ "$1" != "-" && ! -d "$*" ]] && set -- "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")"
-        builtin cd "$*" || return
-    fi
+    [[ $# -gt 0 && "$1" != "-" && ! -d "$*" ]] && set -- "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")"
+    builtin cd ${1+"$*"} || return
     [[ "$old_pwd" != "$PWD" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$PWD" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
 }
 
 _lazy_editor() {
     [[ $# -eq 0 || " $*" == *" "[-+]* ]] && { command ${EDITOR} "$@"; return; }
     
-    local target
-    local -a exec_cmd
-    
-    for target in "$@"; do
+    local target exec_cmd
+    for target; do
         exec_cmd=($EDITOR)
         
-        [[ "$target" != */* && ! -e "$target" ]] && {
-            local match="$(_lazy_read "$_LAZY_FILE_DB" "$target" 2>/dev/null)"
-            [[ -n "$match" ]] && target="$match"
-        }
+        [[ "$target" != */* && ! -e "$target" ]] && target="$(_lazy_read "$_LAZY_FILE_DB" "$target" 2>/dev/null || echo "$target")"
         if [[ -f "$target" ]]; then
             [[ "$target" != /* ]] && target="$(realpath -m "$target" 2>/dev/null || echo "$target")"
             (_lazy_write "$_LAZY_FILE_DB" -f "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
