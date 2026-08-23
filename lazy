@@ -102,13 +102,12 @@ _lazy_read() {
     _lazy_complete_func() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
         
-        local target="$_LAZY_FILE_DB" comp_opt="-f" path rest
+        local target="$_LAZY_FILE_DB" comp_opt="-f" path meta
         [[ "$1" == "_lazy_cd" ]] && {
         	(( COMP_CWORD > 1 )) && return 0
         	target="$_LAZY_DIR_DB"
         	comp_opt="-d"
         }
-        
         COMPREPLY=()
         local -A seen_paths
         
@@ -120,7 +119,7 @@ _lazy_read() {
             		local_nocase=1
             	}
             }
-            while IFS="|" read -r path rest; do
+            while IFS="|" read -r path meta; do
                 [[ -n "$path" && "$path" == *"$pattern"* ]] && {
                     COMPREPLY+=("${path/#$_LAZY_REAL_HOME/\~}")
                     seen_paths["$path"]=1
@@ -128,12 +127,13 @@ _lazy_read() {
             done < "$target"
             [[ $local_nocase -eq 1 ]] && shopt -u nocasematch
         }
-        while IFS= read -r path; do
-            [[ -n "$path" && ! -v seen_paths["$PWD/$path"] ]] && {
-                COMPREPLY+=("$path")
-                seen_paths["$PWD/$path"]=1
-            }
-        done < <(compgen "$comp_opt" -- "$2")
+        mapfile -t path < <(compgen "$comp_opt" -- "$2")
+        [[ ${#path[@]} -gt 0 ]] && {
+            mapfile -t meta < <(realpath -m "${path[@]}" 2>/dev/null)
+            for ((i=0; i<${#path[@]}; i++)); do
+                [[ ! -v seen_paths["${meta[i]:-$PWD/${path[i]}}"] ]] && COMPREPLY+=("${path[i]}")
+            done
+        }
     }
     complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func _lazy_cd
     complete -o nosort -o bashdefault -o default -F _lazy_complete_func _lazy_editor
