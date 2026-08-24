@@ -51,7 +51,7 @@ CURRENT STATS\n\
 }
 
 _lazy_write() {
-    [[ ! "$1" =~ ^($_LAZY_DIR_DB|$_LAZY_FILE_DB)$ || ! "$2" =~ ^-(d|f)$ || -z "$3" ]] && return 1
+	[[ ! ( ( "$1" == "$_LAZY_DIR_DB" && "$2" == "-d" ) || ( "$1" == "$_LAZY_FILE_DB" && "$2" == "-f" ) ) || -z "$3" ]] && return 1
     [[ "$3" != "$_LAZY_REAL_HOME/"* ]] && return 0
 
     local blacklist
