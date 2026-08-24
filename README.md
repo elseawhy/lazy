@@ -82,6 +82,15 @@ You can override these by exporting them before the `source` line
 | `_LAZY_FILE_BLACKLIST`| `(empty)` | array of path prefixes to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
 
+`EDITOR` supports arguments and absolute paths. Providing an absolute path prevents binary spoofing. Malicious inputs are safely neutralized because the script expands the variable into an array and executes it via the command builtin. For example if an attacker sets `EDITOR="nano; curl example.com"`, behind the scenes it executes exactly like this
+
+```bash
+exec_cmd=("nano;" "curl" "example.com")
+command "${exec_cmd[@]}"
+```
+
+This forces the shell to search for an executable literally named `nano;` rather than running the malicious curl command, safely resulting in a command not found error.
+
 ## How it works
 
 Each line in a datafile is exactly two columns: `path|score`. Instead of wall-clock time, which breaks if you take a break from your computer, `lazy` uses an implicit **Event Clock**—time only moves forward when you execute a command. Every time you visit a path, the background writer continuously applies a radioactive **half-life decay** across the *entire* database (`score / (2 ^ (1 / HALF_LIFE))`), and grants your newly visited target a +1 bonus. *(The underlying exponential decay algorithms were heavily inspired by **[jghub/ze](https://github.com/jghub/ze)**).* Because this decay is mathematically constant, the background writer processes the database in a single ultra-fast stream without ever buffering it into memory. Moreover, because all scores are continuously pre-sorted, the read script (`cd foo`) never has to do any math or spawn sub-shells at all, resulting in true zero-latency jumps. The database is strictly capped at a maximum capacity (`1000` entries by default); whenever it exceeds this limit, the lowest-scoring entries are automatically pruned.
