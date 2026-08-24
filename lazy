@@ -39,7 +39,7 @@ CURRENT STATS\n\
   %-24s%s\n" \
         "lazy" "show this help" \
         "cd foo" "falls back to smart directory jump" \
-        "${_LAZY_EDITOR} foo" "falls back to smart file open (auto-escalates if outside \$HOME)" \
+        "${_LAZY_EDITOR} foo" "falls back to smart file open (auto-escalates if no write permission)" \
         "Half-Life" "${_LAZY_HALF_LIFE:-85} commands" \
         "Maximum Entries" "${_LAZY_MAX_ENTRIES:-1000}" \
         "Maximum possible score" "$(awk -v H="${_LAZY_HALF_LIFE:-85}" 'BEGIN { printf "%.1f", 1 / (1 - (0.5 ^ (1 / H))) }')"
@@ -98,7 +98,41 @@ _lazy_read() {
     ' "$1"
 }
 
-[[ -n "${BASH_VERSION-}" ]] && {
+_lazy_cd() {
+    local old_pwd="$PWD"
+    [[ $# -gt 0 && "$1" != "-" && ! -d "$*" ]] && set -- "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")"
+    builtin cd ${1+"$*"} || return
+    [[ "$old_pwd" != "$PWD" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$PWD" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
+}
+
+_lazy_editor() {
+    [[ $# -eq 0 || " $*" == *" "[-+]* ]] && {
+    	command ${EDITOR} "$@"
+    	return
+    }
+    local target exec_cmd
+    for target; do
+        exec_cmd=($EDITOR)
+        
+        [[ "$target" != */* && ! -e "$target" ]] && target="$(_lazy_read "$_LAZY_FILE_DB" "$target" 2>/dev/null || echo "$target")"
+        if [[ -f "$target" ]]; then
+            [[ "$target" != /* ]] && target="$(realpath -m "$target" 2>/dev/null || echo "$target")"
+            (_lazy_write "$_LAZY_FILE_DB" -f "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
+            [[ ! -w "$target" ]] && exec_cmd=(sudo -e)
+        else
+        	local dname="${target%/*}"
+        	[[ "$dname" == "$target" ]] && dname="."
+        	[[ ! -d "$dname" ]] && {
+        		echo "lazy: directory '$dname' does not exist for target '$target'" >&2
+        		continue
+        	}
+            [[ ! -w "$dname" ]] && exec_cmd=(sudo -e)
+        fi
+        command "${exec_cmd[@]}" "$target"
+    done
+}
+
+if [[ -n "${BASH_VERSION-}" ]]; then
     _lazy_complete_func() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
         
@@ -128,6 +162,7 @@ _lazy_read() {
             [[ $local_nocase -eq 1 ]] && shopt -u nocasematch
         }
         mapfile -t path < <(compgen "$comp_opt" -- "$2")
+        
         [[ ${#path[@]} -gt 0 ]] && {
             mapfile -t meta < <(realpath -m "${path[@]}" 2>/dev/null)
             for ((i=0; i<${#path[@]}; i++)); do
@@ -137,36 +172,38 @@ _lazy_read() {
     }
     complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete_func _lazy_cd
     complete -o nosort -o bashdefault -o default -F _lazy_complete_func _lazy_editor
-}
-
-_lazy_cd() {
-    local old_pwd="$PWD"
-    [[ $# -gt 0 && "$1" != "-" && ! -d "$*" ]] && set -- "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")"
-    builtin cd ${1+"$*"} || return
-    [[ "$old_pwd" != "$PWD" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$PWD" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
-}
-
-_lazy_editor() {
-    [[ $# -eq 0 || " $*" == *" "[-+]* ]] && { command ${EDITOR} "$@"; return; }
     
-    local target exec_cmd
-    for target; do
-        exec_cmd=($EDITOR)
+elif [[ -n "${ZSH_VERSION-}" ]]; then
+    _lazy_complete_func() {
+        local target="$_LAZY_FILE_DB" ignore_list paths meta
         
-        [[ "$target" != */* && ! -e "$target" ]] && target="$(_lazy_read "$_LAZY_FILE_DB" "$target" 2>/dev/null || echo "$target")"
-        if [[ -f "$target" ]]; then
-            [[ "$target" != /* ]] && target="$(realpath -m "$target" 2>/dev/null || echo "$target")"
-            (_lazy_write "$_LAZY_FILE_DB" -f "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
-            [[ ! -w "$target" ]] && exec_cmd=(sudo -e)
+        [[ "$words[1]" == "_lazy_cd" ]] && {
+            (( CURRENT > 2 )) && return 0
+            target="$_LAZY_DIR_DB"
+        }
+		local -A seen_paths
+        [[ -s "$target" && "$PREFIX" != */* ]] && {
+            while IFS="|" read -r paths meta; do
+                [[ -n "$paths" && "${(L)paths}" == *"${(L)PREFIX// /*}"* ]] && {
+                    compadd -Q -V lazy_db -- "~/${(q)paths#$_LAZY_REAL_HOME/}"
+                    seen_paths[$paths]=1
+                }
+            done < "$target"
+        }
+        for paths in ${PREFIX}*(N); do
+            [[ -n "${seen_paths[${paths:A}]}" ]] && ignore_list+=("${paths:t}")
+        done
+
+        if [[ "$words[1]" == "_lazy_cd" ]]; then
+            _path_files -/ -F ignore_list
         else
-        	local dname="${target%/*}"
-        	[[ "$dname" == "$target" ]] && dname="."
-        	[[ ! -d "$dname" ]] && {
-        		echo "lazy: directory '$dname' does not exist for target '$target'" >&2
-        		continue
-        	}
-            [[ ! -w "$dname" ]] && exec_cmd=(sudo -e)
+            _files -F ignore_list
         fi
-        command "${exec_cmd[@]}" "$target"
-    done
-}
+    }
+    type compdef >/dev/null 2>&1 || {
+    	autoload -Uz compinit
+    	compinit
+    }
+    compdef _lazy_complete_func _lazy_cd
+    compdef _lazy_complete_func _lazy_editor
+fi

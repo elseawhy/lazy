@@ -1,6 +1,6 @@
 # lazy
 
-`lazy` is a heavily stripped-down, zero-bloat fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path. Built to match my workflow, it natively supports Bash and Zsh out of the box (note: Tab Completion is currently only supported in Bash, but all other smart jumping and wrapping features work universally across both shells).
+`lazy` is a heavily stripped-down, zero-bloat fork of [rupa/z](https://github.com/rupa/z). It tracks your most-used directories by *frecency* (frequency + recency) so you can jump to them by typing a fragment of the name instead of the full path. Built to match my workflow, it natively supports Bash and Zsh out of the box.
 
 Highly recommended to be used with [HalFrgrd/flyline](https://github.com/HalFrgrd/flyline) (Bash only).
 
@@ -8,13 +8,13 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
 - **Ships smart wrappers out of the box** — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
-- **Auto-Privilege Escalation** — The editor wrapper intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes `sudo` or `sudo -e` instead. Zero friction.
+- **Auto-Privilege Escalation** — The editor wrapper intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes `sudo -e` instead.
 - **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
 - **Continuous Background Pruning** — Dead paths and old history are automatically purged from the database via a background process every time an entry is added, keeping the database perfectly clean with virtually zero latency to your prompt.
 - **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
-- **Intelligent Flag Bypass** — Passing any standard editor flags (`-v`, `+42`, etc.) instantly safely downgrades the wrapper into a raw passthrough. No mangled flags, no accidental database tracking, and no broken arguments.
+- **Intelligent Flag Bypass** — Passing any standard editor flags (`-v`, `+42`, etc.) instantly safely downgrades the wrapper into a raw passthrough.
 - **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed.
-- **Configurable Blacklists** — Exclude specific paths from ever polluting your history using standard Bash arrays. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
+- **Configurable Blacklists** — Exclude specific paths from ever polluting your history using standard shell arrays. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
 
   > All credit for the original algorithm, the frecency scoring, and the aging logic goes to [rupa/z](https://github.com/rupa/z), along with [jghub/ze](https://github.com/jghub/ze) for the event clock and exponential decay algorithms.
 
