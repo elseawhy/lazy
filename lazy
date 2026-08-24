@@ -85,21 +85,17 @@ _lazy_read() {
     awk -F"|" -v query="${*:2}" '
         BEGIN {
             gsub(/ /, ".*", query)
-            lower_query = tolower(query)
-            case_sensitive = (query != lower_query)
-            if (!case_sensitive) query = lower_query
+            case_sensitive = (query != tolower(query))
         }
-        {
-            if ($1 == "") next
+        $1 {
             base = parts[split($1, parts, "/")]
-            candidate = case_sensitive ? base : tolower(base)
-            if (candidate ~ query) {
+            if ((case_sensitive ? base : tolower(base)) ~ query) {
                 print $1
                 found = 1
-                exit 0
+                exit
             }
         }
-        END { if (!found) exit 1 }
+        END { exit !found }
     ' "$1"
 }
 
