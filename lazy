@@ -161,11 +161,9 @@ if [[ -n "${BASH_VERSION-}" ]]; then
         
         [[ -s "$target" && "$2" != */* ]] && {
             local pattern="${2// /*}" local_nocase=0
-            [[ "$pattern" == "${pattern,,}" ]] && { 
-            	shopt -q nocasematch || {
-            		shopt -s nocasematch
-            		local_nocase=1
-            	}
+            [[ "$pattern" == "${pattern,,}" ]] && ! shopt -q nocasematch && {
+            	shopt -s nocasematch
+            	local_nocase=1
             }
             while IFS="|" read -r path meta; do
                 [[ -n "$path" && "$path" == *"$pattern"* ]] && {
