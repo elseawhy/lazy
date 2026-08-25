@@ -49,6 +49,7 @@ TUNABLES (initialize these in .bashrc before sourcing lazy)\n\
   _LAZY_FILE_BLACKLIST    array of path prefixes to ignore for editor (default: empty)\n\
   _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
   _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
+  _LAZY_MAX_COMPLETIONS   maximum number of matches to show in completion (default: 10)\n\
   EDITOR                  program used to open matched files (default: nano)\n\n\
 CURRENT STATS\n\
   %-24s%s\n\
@@ -170,6 +171,7 @@ if [[ -n "${BASH_VERSION-}" ]]; then
                 [[ -n "$path" && "$path" == *"$pattern"* ]] && {
                     COMPREPLY+=("${path/#$_LAZY_REAL_HOME/\~}")
                     seen_paths["$path"]=1
+                    (( ${#seen_paths[@]} >= ${_LAZY_MAX_COMPLETIONS:-10} )) && break
                 }
             done < "$target"
             [[ $local_nocase -eq 1 ]] && shopt -u nocasematch
@@ -200,11 +202,12 @@ elif [[ -n "${ZSH_VERSION-}" ]]; then
                 [[ -n "$paths" && "${(L)paths}" == *"${(L)PREFIX// /*}"* ]] && {
                     compadd -Q -V lazy_db -- "~/${(q)paths#$_LAZY_REAL_HOME/}"
                     seen_paths[$paths]=1
+                    (( ${#seen_paths[@]} >= ${_LAZY_MAX_COMPLETIONS:-10} )) && break
                 }
             done < "$target"
         }
         for paths in ${PREFIX}*(N); do
-            [[ -n "${seen_paths[${paths:A}]}" ]] && ignore_list+=("${paths:t}")
+            [[ -v seen_paths[${paths:A}] ]] && ignore_list+=("${paths:t}")
         done
 
         if [[ "$words[1]" == "_lazy_cd" ]]; then

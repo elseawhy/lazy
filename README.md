@@ -78,6 +78,7 @@ You can override these by exporting them before the `source` line
 | `_LAZY_FILE_DB` | `~/.lazyfile` | file datafile path |
 | `_LAZY_HALF_LIFE` | `85` | number of commands before a score halves |
 | `_LAZY_MAX_ENTRIES` | `1000` | maximum number of entries to track per file |
+| `_LAZY_MAX_COMPLETIONS` | `10` | maximum number of matches to show in completion |
 | `_LAZY_DIR_BLACKLIST` | `(empty)` | array of path prefixes to ignore for cd |
 | `_LAZY_FILE_BLACKLIST`| `(empty)` | array of path prefixes to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |
