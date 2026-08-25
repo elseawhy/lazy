@@ -33,8 +33,10 @@ else
     _LAZY_EDITOR_ARR=($EDITOR)
 fi
 
-alias "${_LAZY_EDITOR_ARR[0]##*/}"='_lazy_editor'
+_lazy_editor_alias="${EDITOR%% *}"
 alias cd='_lazy_cd'
+alias "${_lazy_editor_alias##*/}"='_lazy_editor'
+unset _lazy_editor_alias
 
 lazy() {
     printf "lazy - frecency-based smart cd and editor launcher\n\n\
