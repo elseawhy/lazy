@@ -5,12 +5,11 @@
 # Original z.sh was distributed under the WTFPL v2.
 # lazy is distributed under the MIT License, forked/extended to track files.
 
-_LAZY_REAL_HOME="$(realpath -m "$HOME" 2>/dev/null || echo "$HOME")"
-_LAZY_DIR_DB="$(realpath -m "${_LAZY_DIR_DB:-$_LAZY_REAL_HOME/.lazydir}" 2>/dev/null || echo "${_LAZY_DIR_DB:-$_LAZY_REAL_HOME/.lazydir}")"
-_LAZY_FILE_DB="$(realpath -m "${_LAZY_FILE_DB:-$_LAZY_REAL_HOME/.lazyfile}" 2>/dev/null || echo "${_LAZY_FILE_DB:-$_LAZY_REAL_HOME/.lazyfile}")"
+_LAZY_REAL_HOME="$(realpath "$HOME" 2>/dev/null || echo "$HOME")"
+_LAZY_DIR_DB="$(realpath "${_LAZY_DIR_DB:-$_LAZY_REAL_HOME/.lazydir}" 2>/dev/null || echo "${_LAZY_DIR_DB:-$_LAZY_REAL_HOME/.lazydir}")"
+_LAZY_FILE_DB="$(realpath "${_LAZY_FILE_DB:-$_LAZY_REAL_HOME/.lazyfile}" 2>/dev/null || echo "${_LAZY_FILE_DB:-$_LAZY_REAL_HOME/.lazyfile}")"
 
-[[ -d "$_LAZY_DIR_DB" ]] && { echo "ERROR: lazy's dir datafile ($_LAZY_DIR_DB) is a directory."; return 1; }
-[[ -d "$_LAZY_FILE_DB" ]] && { echo "ERROR: lazy's file datafile ($_LAZY_FILE_DB) is a directory."; return 1; }
+[[ -d "$_LAZY_DIR_DB" || -d "$_LAZY_FILE_DB" ]] && { echo "lazy: $_LAZY_DIR_DB or $_LAZY_FILE_DB is a directory" >&2; return 1; }
 
 _LAZY_MAX_ENTRIES=$(
 	awk -v H="${_LAZY_HALF_LIFE:-85}" -v M="${_LAZY_MAX_ENTRIES:-1000}" '
@@ -31,40 +30,14 @@ _lazy_editor_alias="${EDITOR%% *}"
 alias cd='_lazy_cd'
 alias "${_lazy_editor_alias##*/}"='_lazy_editor'
 
-lazy() {
-    printf "lazy - frecency-based smart cd and editor launcher\n\n\
-USAGE\n\
-  %-21s%s\n\
-  %-21s%s\n\
-  %-21s%s\n\n\
-TUNABLES (initialize these in .bashrc before sourcing lazy)\n\
-  _LAZY_DIR_DB            directory datafile path (default: ~/.lazydir)\n\
-  _LAZY_FILE_DB           file datafile path (default: ~/.lazyfile)\n\
-  _LAZY_DIR_BLACKLIST     array of path prefixes to ignore for cd (default: empty)\n\
-  _LAZY_FILE_BLACKLIST    array of path prefixes to ignore for editor (default: empty)\n\
-  _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
-  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
-  _LAZY_MAX_COMPLETIONS   maximum number of matches to show in completion (default: 10)\n\
-  EDITOR                  program used to open matched files (default: nano)\n\n\
-CURRENT STATS\n\
-  %-24s%s\n\
-  %-24s%s\n\
-  %-24s%s\n" \
-        "lazy" "show this help" \
-        "cd foo" "falls back to smart directory jump" \
-        "${_lazy_editor_alias##*/} foo" "falls back to smart file open (auto-escalates if no write permission)" \
-        "Half-Life" "${_LAZY_HALF_LIFE:-85} commands" \
-        "Maximum Entries" "$_LAZY_MAX_ENTRIES" \
-        "Maximum possible score" "$(awk -v H="${_LAZY_HALF_LIFE:-85}" 'BEGIN { printf "%.1f", 1 / (1 - (0.5 ^ (1 / H))) }')"
-}
-
 _lazy_write() {
 	[[ ! ( ( "$1" == "$_LAZY_DIR_DB" && "$2" == "-d" ) || ( "$1" == "$_LAZY_FILE_DB" && "$2" == "-f" ) ) || -z "$3" ]] && return 1
-    [[ "$3" != "$_LAZY_REAL_HOME/"* ]] && return 0
+    local target="$(realpath "$3" 2>/dev/null || echo "$3")"
+    [[ "$target" != "$_LAZY_REAL_HOME/"* ]] && return 0
 
     local blacklist
     for blacklist in "${@:4}"; do
-        [[ -n "$blacklist" && "$3" == "$blacklist"* ]] && return 0
+        [[ -n "$blacklist" && "$target" == "$blacklist"* ]] && return 0
     done
 
     [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
@@ -72,7 +45,7 @@ _lazy_write() {
     
     if while IFS="|" read -r path rest; do
         [ $2 "$path" ] && echo "$path|$rest"
-    done < "$1" 2>/dev/null | awk -F"|" -v target="$3" -v H="${_LAZY_HALF_LIFE:-85}" '
+    done < "$1" 2>/dev/null | awk -F"|" -v target="$target" -v H="${_LAZY_HALF_LIFE:-85}" '
         BEGIN { OFS="|"; OFMT="%.17g"; CONVFMT="%.17g"; decay = 2 ^ (1 / H) }
         {
             if ($1 == target) {
@@ -131,7 +104,6 @@ _lazy_editor() {
         
         [[ "$target" != */* && ! -e "$target" ]] && target="$(_lazy_read "$_LAZY_FILE_DB" "$target" 2>/dev/null || echo "$target")"
         if [[ -f "$target" ]]; then
-            [[ "$target" != /* ]] && target="$(realpath -m "$target" 2>/dev/null || echo "$target")"
             (_lazy_write "$_LAZY_FILE_DB" -f "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
             [[ ! -w "$target" ]] && exec_cmd=(sudo -e)
         else
@@ -179,7 +151,7 @@ if [[ -n "${BASH_VERSION-}" ]]; then
         mapfile -t path < <(compgen "$comp_opt" -- "$2")
         
         [[ ${#path[@]} -gt 0 ]] && {
-            mapfile -t meta < <(realpath -m "${path[@]}" 2>/dev/null)
+            mapfile -t meta < <(realpath "${path[@]}" 2>/dev/null)
             for ((i=0; i<${#path[@]}; i++)); do
                 [[ ! -v seen_paths["${meta[i]:-$PWD/${path[i]}}"] ]] && COMPREPLY+=("${path[i]}")
             done
@@ -220,3 +192,30 @@ elif [[ -n "${ZSH_VERSION-}" ]]; then
     compdef _lazy_complete _lazy_cd
     compdef _lazy_complete _lazy_editor
 fi
+
+lazy() {
+    printf "lazy - frecency-based smart cd and editor launcher\n\n\
+USAGE\n\
+  %-21s%s\n\
+  %-21s%s\n\
+  %-21s%s\n\n\
+TUNABLES (initialize these in .bashrc before sourcing lazy)\n\
+  _LAZY_DIR_DB            directory datafile path (default: ~/.lazydir)\n\
+  _LAZY_FILE_DB           file datafile path (default: ~/.lazyfile)\n\
+  _LAZY_DIR_BLACKLIST     array of path prefixes to ignore for cd (default: empty)\n\
+  _LAZY_FILE_BLACKLIST    array of path prefixes to ignore for editor (default: empty)\n\
+  _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
+  _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
+  _LAZY_MAX_COMPLETIONS   maximum number of matches to show in completion (default: 10)\n\
+  EDITOR                  program used to open matched files (default: nano)\n\n\
+CURRENT STATS\n\
+  %-24s%s\n\
+  %-24s%s\n\
+  %-24s%s\n" \
+        "lazy" "show this help" \
+        "cd foo" "falls back to smart directory jump" \
+        "${_lazy_editor_alias##*/} foo" "falls back to smart file open (auto-escalates if no write permission)" \
+        "Half-Life" "${_LAZY_HALF_LIFE:-85} commands" \
+        "Maximum Entries" "$_LAZY_MAX_ENTRIES" \
+        "Maximum possible score" "$(awk -v H="${_LAZY_HALF_LIFE:-85}" 'BEGIN { printf "%.1f", 1 / (1 - (0.5 ^ (1 / H))) }')"
+}
