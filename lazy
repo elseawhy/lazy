@@ -109,6 +109,7 @@ _lazy_editor() {
         else
         	local dname="${target%/*}"
         	[[ "$dname" == "$target" ]] && dname="."
+        	[[ -z "$dname" ]] && dname="/"
         	[[ ! -d "$dname" ]] && {
         		echo "lazy: directory '$dname' does not exist for target '$target'" >&2
         		continue
