@@ -191,11 +191,14 @@ elif [[ -n "${ZSH_VERSION-}" ]]; then
                 }
             done < "$target"
         }
-        eval 'for paths in ${PREFIX}*(N); do
-            [[ -v seen_paths[${paths:'"$path_mod"'}] ]] && ignore_list+=("${paths:t}")
-        done'
-
-        "${comp_cmd[@]}" -F ignore_list
+        if (( ${#seen_paths[@]} > 0 )); then
+            eval 'for paths in ${PREFIX}*(N); do
+                [[ -v seen_paths[${paths:'"$path_mod"'}] ]] && ignore_list+=("${paths:t}")
+            done'
+            "${comp_cmd[@]}" -F ignore_list
+        else
+            "${comp_cmd[@]}"
+        fi
     }
     type compdef >/dev/null 2>&1 || {
     	autoload -Uz compinit
