@@ -43,18 +43,18 @@ _lazy_write() {
     [[ -f "$1" ]] || touch "$1" 2>/dev/null || return 1
     local tempfile="$(mktemp "${1}.XXXXXX")"
     
-    if while IFS="|" read -r path rest; do
-        [ $2 "$path" ] && echo "$path|$rest"
-    done < "$1" 2>/dev/null | awk -F"|" -v target="$target" -v H="${_LAZY_HALF_LIFE:-85}" '
-        BEGIN { OFS="|"; OFMT="%.17g"; CONVFMT="%.17g"; decay = 2 ^ (1 / H) }
-        {
+    if while IFS=$'\t' read -r path rest; do
+        [ $2 "$path" ] && printf "%s\t%s\n" "$path" "$rest"
+    done < "$1" 2>/dev/null | awk -F'\t' -v target="$target" -v H="${_LAZY_HALF_LIFE:-85}" '
+        BEGIN { OFS="\t"; OFMT="%.17g"; CONVFMT="%.17g"; decay = 2 ^ (1 / H) }
+        NF == 2 {
             if ($1 == target) {
                 found = 1
                 print $1, ($2 / decay) + 1
             } else print $1, $2 / decay
         }
         END { if (!found) print target, 1 }
-    ' | LC_ALL=C sort -t'|' -k2,2gr -k1,1 | head -n "$_LAZY_MAX_ENTRIES" > "$tempfile" && [[ -s "$tempfile" ]]; then
+    ' | LC_ALL=C sort -t$'\t' -k2,2gr -k1,1 | head -n "$_LAZY_MAX_ENTRIES" > "$tempfile" && [[ -s "$tempfile" ]]; then
     	\env mv -f "$tempfile" "$1"
 	else
     	\env rm -f "$tempfile"
@@ -63,12 +63,12 @@ _lazy_write() {
 
 _lazy_read() {
     [[ -z "$2" || ! -f "$1" ]] && return 1
-    awk -F"|" -v query="${*:2}" '
+    awk -F'\t' -v query="${*:2}" '
         BEGIN {
             gsub(/ /, ".*", query)
             case_sensitive = (query != tolower(query))
         }
-        $1 {
+        NF == 2 {
             base = parts[split($1, parts, "/")]
             if ((case_sensitive ? base : tolower(base)) ~ query) {
                 print $1
@@ -140,7 +140,7 @@ if [[ -n "${BASH_VERSION-}" ]]; then
             	shopt -s nocasematch
             	local_nocase=1
             }
-            while IFS="|" read -r path meta; do
+            while IFS=$'\t' read -r path meta; do
                 [[ -n "$path" && "$path" == *"$pattern"* ]] && {
                     COMPREPLY+=("${path/#$_LAZY_REAL_HOME/\~}")
                     seen_paths["$path"]=1
@@ -172,7 +172,7 @@ elif [[ -n "${ZSH_VERSION-}" ]]; then
         
 		local -A seen_paths
         [[ -s "$target" && "$PREFIX" != */* ]] && {
-            while IFS="|" read -r paths meta; do
+            while IFS=$'\t' read -r paths meta; do
                 [[ -n "$paths" && "${(L)paths}" == *"${(L)PREFIX// /*}"* ]] && {
                     compadd -U -Q -V lazy_db -- "~/${(q)paths#$_LAZY_REAL_HOME/}"
                     seen_paths[$paths]=1
