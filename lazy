@@ -101,7 +101,7 @@ _lazy_editor() {
     for target; do
         exec_cmd=("${_LAZY_EDITOR_ARR[@]}")
         
-        [[ "$target" != */* && ! -e "$target" ]] && target="$(_lazy_read "$_LAZY_FILE_DB" "$target" 2>/dev/null || echo "$target")"
+        [[ "$target" != */* && ! -f "$target" ]] && target="$(_lazy_read "$_LAZY_FILE_DB" "$target" 2>/dev/null || echo "$target")"
         if [[ -f "$target" ]]; then
             target="$(realpath "$target" 2>/dev/null || echo "$target")"
             (_lazy_write "$_LAZY_FILE_DB" -f "$target" ${_LAZY_FILE_BLACKLIST[@]+"${_LAZY_FILE_BLACKLIST[@]}"} &)
