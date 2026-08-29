@@ -120,7 +120,7 @@ _lazy_editor() {
     done
 }
 
-if [[ -n "${BASH_VERSION-}" ]]; then
+if type complete >/dev/null 2>&1; then
     _lazy_complete() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
 
@@ -172,7 +172,7 @@ if [[ -n "${BASH_VERSION-}" ]]; then
     complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete _lazy_cd cd
     complete -o nosort -o bashdefault -o default -F _lazy_complete _lazy_editor ${_lazy_editor_alias##*/}
 
-elif [[ -n "${ZSH_VERSION-}" ]]; then
+elif type compadd >/dev/null 2>&1; then
     _lazy_complete() {
         if [[ "$words[1]" == "_lazy_cd" ]]; then
             (( CURRENT > 2 )) && return 0
