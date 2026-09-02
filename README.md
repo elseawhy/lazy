@@ -33,8 +33,9 @@ This tool is built for users who...
 Put this in your `.bashrc` or `.zshrc`:
 
 ```bash
-# 1. Export your editor: nvim, emacs, micro, nano, etc.
-export EDITOR=nvim
+# 1. Define your editor: nvim, emacs, micro, nano, etc.
+# No need to export! The script handles it automatically.
+EDITOR=nvim
 
 # 2. Source the script
 . /path/to/lazy

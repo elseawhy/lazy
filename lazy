@@ -120,7 +120,7 @@ lazy_editor() {
         	}
             [[ ! -w "$dname" ]] && exec_cmd=(sudo -e)
         fi
-        command "${exec_cmd[@]}" "$target"
+        SUDO_EDITOR="${SUDO_EDITOR:-${EDITOR:-${VISUAL:-nano}}}" command "${exec_cmd[@]}" "$target"
     done
 }
 
