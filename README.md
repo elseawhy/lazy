@@ -9,9 +9,8 @@ This fork extends the exact same concept to **files**, but removes all the clunk
 - Tracks files and directories in **separate datafiles** (`~/.lazydir`, `~/.lazyfile`), so directory and file matching never collide.
 - **Ships smart wrappers out of the box** — `cd` falls back to fuzzy directory matching, and your preferred editor falls back to fuzzy file matching.
 - **Auto-Privilege Escalation** — The editor wrapper intelligently checks if you have write access to the target file. If you don't, it instantly recognizes the boundary and automatically executes `sudo -e` instead.
-- **Smart Environment Sync** — Automatically propagates your preferred editor to `$EDITOR`/`$VISUAL` if they aren't already set, so `sudo -e` (which only ever reads `$SUDO_EDITOR`, `$VISUAL`, or `$EDITOR`) picks up your editor too instead of falling back to its own default. Note: if `$SUDO_EDITOR` is set separately, it takes precedence over this sync, since `sudo -e` checks it first.
 - **Continuous Background Pruning** — Dead paths, manually corrupted entries, and old history are automatically purged from the database via a background process every time an entry is added, keeping the database perfectly clean with virtually zero latency to your prompt.
-- **Dynamically adapts to your editor** — Whether you use `nvim`, `emacs`, `micro`, or `nano`, the script automatically creates a smart wrapper function matching your editor's name.
+- **Dynamically adapts to your workflow** — By default, the script creates smart aliases for `cd` and your preferred `$EDITOR`. You can fully customize these alias names, or disable them entirely to use the underlying functions directly.
 - **Intelligent Flag Bypass** — Passing any standard editor flags (`-v`, `+42`, etc.) instantly safely downgrades the wrapper into a raw passthrough.
 - **Instant Tab Completion** — Fuses your frecency history with normal local directory/file completions in a single list. Prioritizes history matches at the top and falls straight through to standard completion if a real path (contains `/`) is typed.
 - **Configurable Blacklists** — Exclude specific paths from ever polluting your history using standard shell arrays. By default, safely ignores anything outside your `$HOME` directory (as well as `$HOME` itself).
@@ -34,9 +33,8 @@ This tool is built for users who...
 Put this in your `.bashrc` or `.zshrc`:
 
 ```bash
-# 1. Define your editor: nvim, emacs, micro, nano, etc.
-# Don't export! The script does it for you.
-EDITOR=nvim
+# 1. Export your editor: nvim, emacs, micro, nano, etc.
+export EDITOR=nvim
 
 # 2. Source the script
 . /path/to/lazy
@@ -79,6 +77,8 @@ You can override these by exporting them before the `source` line
 | `_LAZY_HALF_LIFE` | `85` | number of commands before a score halves |
 | `_LAZY_MAX_ENTRIES` | `1000` | maximum number of entries to track per file |
 | `_LAZY_MAX_COMPLETIONS` | `10` | maximum number of matches to show in completion |
+| `_LAZY_CD_COMMAND` | `cd` | command to alias for smart cd (set to empty to disable) |
+| `_LAZY_EDITOR_COMMAND` | basename of `EDITOR` | command to alias for smart editor (set to empty to disable) |
 | `_LAZY_DIR_BLACKLIST` | `(empty)` | array of path prefixes to ignore for cd |
 | `_LAZY_FILE_BLACKLIST`| `(empty)` | array of path prefixes to ignore for editor |
 | `EDITOR` | `$VISUAL`, else `nano` | program used to open matched files |

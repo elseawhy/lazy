@@ -23,12 +23,16 @@ _LAZY_MAX_ENTRIES=$(
 	'
 )
 
-export EDITOR="${EDITOR:-${VISUAL:-nano}}"
-export VISUAL="$EDITOR"
+_LAZY_CD_COMMAND="${_LAZY_CD_COMMAND-cd}"
 
-_lazy_editor_alias="${EDITOR%% *}"
-alias cd='_lazy_cd'
-alias "${_lazy_editor_alias##*/}"='_lazy_editor'
+[[ -z "${_LAZY_EDITOR_COMMAND+x}" ]] && {
+    _LAZY_EDITOR_COMMAND="${EDITOR:-${VISUAL:-nano}}"
+    _LAZY_EDITOR_COMMAND="${_LAZY_EDITOR_COMMAND%% *}"
+    _LAZY_EDITOR_COMMAND="${_LAZY_EDITOR_COMMAND##*/}"
+}
+
+[[ -n "$_LAZY_CD_COMMAND" ]] && alias "$_LAZY_CD_COMMAND"='lazy_cd'
+[[ -n "$_LAZY_EDITOR_COMMAND" ]] && alias "$_LAZY_EDITOR_COMMAND"='lazy_editor'
 
 _lazy_write() {
 	[[ ! ( ( "$1" == "$_LAZY_DIR_DB" && "$2" == "-d" ) || ( "$1" == "$_LAZY_FILE_DB" && "$2" == "-f" ) ) || -z "$3" ]] && return 1
@@ -79,18 +83,18 @@ _lazy_read() {
     ' "$1"
 }
 
-_lazy_cd() {
+lazy_cd() {
     local old_pwd="$PWD"
     [[ $# -gt 0 && "$1" != "-" && ! -d "$*" ]] && set -- "$(_lazy_read "$_LAZY_DIR_DB" "$@" || echo "$*")"
     builtin cd ${1+"$*"} || return
     [[ "$old_pwd" != "$PWD" ]] && (_lazy_write "$_LAZY_DIR_DB" -d "$PWD" ${_LAZY_DIR_BLACKLIST[@]+"${_LAZY_DIR_BLACKLIST[@]}"} 2>/dev/null &)
 }
 
-_lazy_editor() {
+lazy_editor() {
     if [[ -n "${ZSH_VERSION-}" ]]; then
-    	local _LAZY_EDITOR_ARR=(${=EDITOR})
+    	local _LAZY_EDITOR_ARR=(${=${EDITOR:-${VISUAL:-nano}}})
 	else 
-		local _LAZY_EDITOR_ARR=($EDITOR)
+		local _LAZY_EDITOR_ARR=(${EDITOR:-${VISUAL:-nano}})
 	fi
 	
     [[ $# -eq 0 || " $*" == *" "[-+]* ]] && {
@@ -124,7 +128,7 @@ if type complete >/dev/null 2>&1; then
     _lazy_complete() {
         [[ -z "${COMP_LINE+x}" ]] && return 1
 
-		if [[ "$1" = *"cd" ]]; then
+		if [[ "$1" == "lazy_cd" ]]; then
 			(( COMP_CWORD > 1 )) && return 0
 			local target="$_LAZY_DIR_DB" comp_opt="-d" home_prefix="$HOME" path meta
 		else
@@ -169,14 +173,14 @@ if type complete >/dev/null 2>&1; then
             done
         fi
     }
-    complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete _lazy_cd cd
-    complete -o nosort -o bashdefault -o default -F _lazy_complete _lazy_editor ${_lazy_editor_alias##*/}
+    complete -o nosort -o dirnames -o bashdefault -o default -F _lazy_complete lazy_cd
+    complete -o nosort -o bashdefault -o default -F _lazy_complete lazy_editor
 
 elif type compadd >/dev/null 2>&1; then
     _lazy_complete() {
         [[ -z "${CURRENT-}" ]] && return 1
         
-        if [[ "$words[1]" == "_lazy_cd" ]]; then
+        if [[ "$words[1]" == "lazy_cd" ]]; then
             (( CURRENT > 2 )) && return 0
             local target="$_LAZY_DIR_DB" comp_cmd=(_path_files -/) home_prefix="$HOME" path_mod="a" ignore_list paths meta
         else
@@ -207,8 +211,8 @@ elif type compadd >/dev/null 2>&1; then
     	autoload -Uz compinit
     	compinit
     }
-    compdef _lazy_complete _lazy_cd
-    compdef _lazy_complete _lazy_editor
+    compdef _lazy_complete lazy_cd
+    compdef _lazy_complete lazy_editor
 fi
 
 lazy() {
@@ -225,14 +229,16 @@ TUNABLES (initialize these in .bashrc before sourcing lazy)\n\
   _LAZY_HALF_LIFE         commands until score halves (default: 85)\n\
   _LAZY_MAX_ENTRIES       maximum number of entries to track per file (default: 1000)\n\
   _LAZY_MAX_COMPLETIONS   maximum number of matches to show in completion (default: 10)\n\
+  _LAZY_CD_COMMAND        command to alias for smart cd (default: cd, set to empty to disable)\n\
+  _LAZY_EDITOR_COMMAND    command to alias for smart editor (default: basename of EDITOR, set to empty to disable)\n\
   EDITOR                  program used to open matched files (default: nano)\n\n\
 CURRENT STATS\n\
   %-24s%s\n\
   %-24s%s\n\
   %-24s%s\n" \
         "lazy" "show this help" \
-        "cd foo" "falls back to smart directory jump" \
-        "${_lazy_editor_alias##*/} foo" "falls back to smart file open (auto-escalates if no write permission)" \
+        "${_LAZY_CD_COMMAND:-lazy_cd} foo" "falls back to smart directory jump" \
+        "${_LAZY_EDITOR_COMMAND:-lazy_editor} foo" "falls back to smart file open (auto-escalates if no write permission)" \
         "Half-Life" "${_LAZY_HALF_LIFE:-85} commands" \
         "Maximum Entries" "$_LAZY_MAX_ENTRIES" \
         "Maximum possible score" "$(awk -v H="${_LAZY_HALF_LIFE:-85}" 'BEGIN { printf "%.1f", 1 / (1 - (0.5 ^ (1 / H))) }')"
