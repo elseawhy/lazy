@@ -151,13 +151,13 @@ if type complete >/dev/null 2>&1; then
                     (( ${#seen_paths[@]} >= ${_LAZY_MAX_COMPLETIONS:-10} )) && break
                 }
             done < "$target"
-            [[ $local_nocase -eq 1 ]] && shopt -u nocasematch
+            (( local_nocase == 1 )) && shopt -u nocasematch
         }
         mapfile -t path < <(compgen "$comp_opt" -- "$2")
         
-        [[ ${#path[@]} -eq 0 ]] && return 0
+        (( ${#path[@]} == 0 )) && return 0
         
-        if [[ ${#seen_paths[@]} -eq 0 ]]; then
+        if (( ${#seen_paths[@]} == 0 )); then
             COMPREPLY+=("${path[@]}")
         else
             if [[ "$comp_opt" == "-f" ]]; then
@@ -197,14 +197,14 @@ elif type compadd >/dev/null 2>&1; then
                 }
             done < "$target"
         }
-        if (( ${#seen_paths[@]} > 0 )); then
+        if (( ${#seen_paths[@]} == 0 )); then
+            "${comp_cmd[@]}"
+        else
             compstate[insert]=menu
             eval 'for paths in ${PREFIX}*(N); do
                 [[ -v seen_paths[${paths:'"$path_mod"'}] ]] && ignore_list+=("${paths:t}")
             done'
             "${comp_cmd[@]}" -F ignore_list
-        else
-            "${comp_cmd[@]}"
         fi
     }
     type compdef >/dev/null 2>&1 || {
